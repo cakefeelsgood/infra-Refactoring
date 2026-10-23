@@ -1,0 +1,86 @@
+# Base capacity. The taint keeps burst pods off free on-demand space (experiment trap 4, D-004);
+# only base pods tolerate it. Trade-off: burst pods cannot fall back to on-demand when Spot is short.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: on-demand-base
+spec:
+  template:
+    metadata:
+      labels:
+        capacity: on-demand
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      expireAfter: 720h
+      taints:
+        - key: capacity
+          value: on-demand
+          effect: NoSchedule
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["4"]
+        # The experiment allowed large only for its FIS preconditions (deviations.md D-001).
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge"]
+  limits:
+    cpu: "16"
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s
+---
+# Burst capacity for HPA scale-out and Spot-tolerant workloads.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: spot-burst
+spec:
+  template:
+    metadata:
+      labels:
+        capacity: spot
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      expireAfter: 720h
+      taints:
+        - key: capacity
+          value: spot
+          effect: NoSchedule
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["4"]
+        # The experiment allowed large only for its FIS preconditions (deviations.md D-001).
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge"]
+  limits:
+    cpu: "32"
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s

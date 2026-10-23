@@ -1,0 +1,31 @@
+# AL2023 + encrypted gp3, as in the karpenter-spot-lab experiment.
+# Subnets: only the /20 Karpenter node subnets carry karpenter.sh/discovery (terraform modules/prod-vpc).
+# Security group: the EKS cluster primary SG, tagged by terraform/modules/karpenter.
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  role: moment-prod-karpenter-node-role
+  # Pinned in prod: @latest drifts every node (base included) on each AMI release.
+  # v20261012 covers K8s 1.33-1.35 (awslabs/amazon-eks-ami release notes). Bump deliberately.
+  amiSelectorTerms:
+    - alias: al2023@v20261012
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: moment-prod-eks-cluster
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: moment-prod-eks-cluster
+  tags:
+    Project: moment
+    Environment: prod
+    Owner: team04
+    ManagedBy: karpenter
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 30Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
