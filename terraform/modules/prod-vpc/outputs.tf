@@ -18,6 +18,11 @@ output "prod_private_app_subnet_ids" {
   value       = aws_subnet.private_app[*].id
 }
 
+output "prod_karpenter_node_subnet_ids" {
+  description = "Prod Karpenter node subnet IDs."
+  value       = aws_subnet.karpenter_node[*].id
+}
+
 output "prod_private_data_subnet_ids" {
   description = "Prod private data subnet IDs."
   value       = aws_subnet.private_data[*].id

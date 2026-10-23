@@ -59,6 +59,33 @@ resource "aws_subnet" "private_app" {
   })
 }
 
+# Karpenter nodes and their pods. Larger than private_app (/24) because VPC CNI Prefix
+# Delegation reserves contiguous /28 blocks per node. Only these subnets carry the
+# karpenter.sh/discovery tag, so EC2NodeClass never selects the /24 subnets.
+resource "aws_subnet" "karpenter_node" {
+  count = length(var.karpenter_node_subnet_cidrs)
+
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = var.karpenter_node_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = false
+
+  tags = merge(var.tags, local.kubernetes_cluster_discovery_tags, {
+    Name                     = "${var.project_name}-${var.env}-karpenter-node-${count.index + 1}"
+    Environment              = var.env
+    Tier                     = "private-app"
+    Role                     = "eks-karpenter-node"
+    "karpenter.sh/discovery" = var.eks_cluster_name
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.eks_cluster_name != null
+      error_message = "karpenter_node_subnet_cidrs requires eks_cluster_name for the karpenter.sh/discovery tag."
+    }
+  }
+}
+
 resource "aws_subnet" "private_data" {
   count = length(var.private_data_subnet_cidrs)
 
@@ -144,6 +171,14 @@ resource "aws_route_table_association" "private_app" {
   count = length(aws_subnet.private_app)
 
   subnet_id      = aws_subnet.private_app[count.index].id
+  route_table_id = aws_route_table.private_app.id
+}
+
+# Same route table as private_app: identical egress path and S3 gateway endpoint.
+resource "aws_route_table_association" "karpenter_node" {
+  count = length(aws_subnet.karpenter_node)
+
+  subnet_id      = aws_subnet.karpenter_node[count.index].id
   route_table_id = aws_route_table.private_app.id
 }
 

@@ -1,0 +1,63 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: karpenter
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: prod
+spec:
+  project: karpenter-prod
+  source:
+    repoURL: public.ecr.aws/karpenter
+    chart: karpenter
+    targetRevision: 1.15.0
+    helm:
+      releaseName: karpenter
+      # CRDs come from karpenter-crd-prod.
+      skipCrds: true
+      values: |
+        # Role and queue come from terraform/modules/karpenter (terraform/environments/prod/karpenter.tf).
+        settings:
+          clusterName: moment-prod-eks-cluster
+          interruptionQueue: moment-prod-karpenter-interruption
+
+        serviceAccount:
+          create: true
+          name: karpenter
+          annotations:
+            eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-prod-karpenter-controller-irsa-role"
+
+        replicas: 2
+
+        # The controller must not run on nodes it manages: ops managed node group only.
+        nodeSelector:
+          workload: ops
+          capacity: on-demand
+
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: ops
+            effect: NoSchedule
+          - key: CriticalAddonsOnly
+            operator: Exists
+
+        controller:
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

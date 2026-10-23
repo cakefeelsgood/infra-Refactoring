@@ -72,6 +72,8 @@ terraform/
 | docs/data-pipeline.md | EventBridge Scheduler + Lambda Collector 데이터 파이프라인 구성 및 Dev/Prod 활성화 정책 |
 | docs/rds.md | RDS PostgreSQL Dev/Prod 스펙 분리 및 Prod 보호 옵션 기준 |
 | docs/opensearch.md | OpenSearch Dev/Prod 스펙 분리 및 Prod HA 옵션 기준 |
+| docs/karpenter.md | Karpenter On-Demand + Spot 혼합 운영, base/burst 분할 웹훅, 적용 순서 |
+| docs/runbooks/vpc-cni-prefix-delegation.md | VPC CNI Prefix Delegation과 maxPods 정합성, 서브넷 /28 확인 절차 |
 | docs/terraform-environments.md | Dev/Prod Terraform environment 및 state 분리 전략 |
 | docs/gitops.md | GitOps Repository 구조, Helm Chart/Values 경로, ArgoCD Application 경로 기준 |
 | docs/argocd.md | Dev ArgoCD 설치, 접근 방식, repo 연결 및 보안 정리 기준 |
@@ -94,6 +96,8 @@ terraform plan
 
 ---
 ## EKS Managed NodeGroup 분리 기준
+
+> **2026-10-23 변경:** batch/ai 워크로드는 Karpenter NodePool로 옮기고, 기존 batch/ai 노드그룹은 이전이 끝난 뒤 `enable_<env>_legacy_workload_nodegroups = false`로 제거한다(최종적으로 core/ops만 남음). 현재 구성은 [docs/karpenter.md](docs/karpenter.md)를 기준으로 한다. 아래는 이전 기준이다.
 
 MoMent Dev EKS 환경은 워크로드 특성에 따라 On-Demand NodeGroup과 Spot NodeGroup을 분리하여 구성한다.
 

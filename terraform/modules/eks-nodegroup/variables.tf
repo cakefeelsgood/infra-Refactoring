@@ -34,6 +34,9 @@ variable "node_groups" {
     max_size       = number
     disk_size      = number
     labels         = map(string)
+    # kubelet maxPods. Must match the VPC CNI mode: set it together with
+    # ENABLE_PREFIX_DELEGATION (checked by scripts/validation/check-pd-maxpods.sh).
+    max_pods = optional(number)
     taints = optional(list(object({
       key    = string
       value  = string

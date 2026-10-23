@@ -115,6 +115,7 @@ variable "addons" {
   description = "EKS managed add-ons to install. NodeGroup is intentionally out of scope for M2-EKS-01."
   type = map(object({
     addon_version               = string
+    configuration_values        = optional(string)
     service_account_role_arn    = optional(string)
     resolve_conflicts_on_create = optional(string, "OVERWRITE")
     resolve_conflicts_on_update = optional(string, "OVERWRITE")

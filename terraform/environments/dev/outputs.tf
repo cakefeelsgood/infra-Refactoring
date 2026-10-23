@@ -431,3 +431,23 @@ output "dev_cloudwatch_alert_alarm_names" {
   description = "Dev CloudWatch monitoring alert alarm names."
   value       = try(module.dev_alerting_slack_notifier[0].cloudwatch_alarm_names, [])
 }
+
+output "dev_karpenter_node_subnet_ids" {
+  description = "Dev Karpenter node subnet IDs (karpenter.sh/discovery tagged)."
+  value       = try(module.dev_vpc[0].dev_karpenter_node_subnet_ids, [])
+}
+
+output "dev_karpenter_controller_role_arn" {
+  description = "Dev Karpenter controller IRSA role ARN. Referenced by gitops/argocd/dev/applications/karpenter-dev.yaml."
+  value       = try(module.dev_karpenter[0].controller_role_arn, null)
+}
+
+output "dev_karpenter_node_role_name" {
+  description = "Dev Karpenter node role name. Referenced by gitops/apps/dev/karpenter/ec2nodeclass.yaml."
+  value       = try(module.dev_karpenter[0].node_role_name, null)
+}
+
+output "dev_karpenter_interruption_queue_name" {
+  description = "Dev Karpenter interruption SQS queue name. Referenced by Karpenter settings.interruptionQueue."
+  value       = try(module.dev_karpenter[0].interruption_queue_name, null)
+}

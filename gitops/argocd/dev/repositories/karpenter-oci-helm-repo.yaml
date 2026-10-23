@@ -1,0 +1,17 @@
+# Public OCI Helm repository for Karpenter charts. No credentials (public.ecr.aws).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: karpenter-oci-helm-repo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  labels:
+    argocd.argoproj.io/secret-type: repository
+    app.kubernetes.io/part-of: moment
+    environment: dev
+stringData:
+  type: helm
+  name: karpenter
+  url: public.ecr.aws/karpenter
+  enableOCI: "true"
