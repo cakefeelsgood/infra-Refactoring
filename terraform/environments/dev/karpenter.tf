@@ -18,6 +18,8 @@ module "dev_karpenter" {
 
   cluster_security_group_id = module.dev_eks[0].cluster_security_group_id
 
+  create_spot_service_linked_role = var.dev_karpenter_create_spot_service_linked_role
+
   common_tags = merge(local.common_tags, {
     Environment = "dev"
   })

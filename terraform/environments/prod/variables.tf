@@ -869,3 +869,9 @@ variable "enable_prod_legacy_workload_nodegroups" {
   type        = bool
   default     = true
 }
+
+variable "prod_karpenter_create_spot_service_linked_role" {
+  description = "Create AWSServiceRoleForEC2Spot with the Prod Karpenter module. Set true only if the account does not have it yet (the role is account-wide; the legacy Spot managed node groups usually created it already)."
+  type        = bool
+  default     = false
+}

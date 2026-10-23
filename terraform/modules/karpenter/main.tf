@@ -85,6 +85,16 @@ resource "aws_eks_access_entry" "node" {
   })
 }
 
+# ── EC2 Spot service-linked role ──────────────────────────────────────────────
+# Account-wide and created once. The karpenter-spot-lab experiment checked it in Phase 0.
+
+resource "aws_iam_service_linked_role" "spot" {
+  count = var.create_spot_service_linked_role ? 1 : 0
+
+  aws_service_name = "spot.amazonaws.com"
+  description      = "EC2 Spot service-linked role for Karpenter Spot launches"
+}
+
 # ── Discovery tag on the cluster primary security group ──────────────────────
 # Managed node groups in this repo use the cluster primary SG (no custom node SG),
 # so Karpenter nodes select the same SG through this tag.

@@ -18,5 +18,7 @@ module "prod_karpenter" {
 
   cluster_security_group_id = module.prod_eks[0].cluster_security_group_id
 
+  create_spot_service_linked_role = var.prod_karpenter_create_spot_service_linked_role
+
   common_tags = local.prod_tags
 }

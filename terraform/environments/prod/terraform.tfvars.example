@@ -15,6 +15,7 @@ enable_prod_vpc_endpoints  = false
 enable_prod_eks            = false
 enable_prod_nodegroups     = false
 enable_prod_karpenter      = false
+prod_karpenter_create_spot_service_linked_role = false
 enable_prod_legacy_workload_nodegroups = true
 enable_prod_data_tier      = false
 enable_prod_rds            = false

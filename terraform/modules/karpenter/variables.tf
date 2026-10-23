@@ -51,3 +51,9 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_spot_service_linked_role" {
+  description = "Create the account-wide EC2 Spot service-linked role (AWSServiceRoleForEC2Spot). Karpenter cannot launch Spot without it. Keep false when the role already exists (it is per account, so a second create fails)."
+  type        = bool
+  default     = false
+}
