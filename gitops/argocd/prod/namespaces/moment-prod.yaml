@@ -8,3 +8,5 @@ metadata:
     app.kubernetes.io/part-of: moment
     app.kubernetes.io/managed-by: argocd
     environment: prod
+    # capacity-split webhook namespaceSelector. Pods opt in with capacity-split.moment.io/enabled=true.
+    capacity-split: enabled

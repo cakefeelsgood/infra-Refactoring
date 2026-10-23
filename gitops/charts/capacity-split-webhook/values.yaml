@@ -1,0 +1,41 @@
+# capacity-split webhook (source: tools/capacity-split-webhook, design: tools/capacity-split-webhook/DESIGN.md)
+namespace: capacity-split-system
+name: capacity-split-webhook
+
+# image.tag가 비어 있으면 아무 리소스도 렌더링하지 않는다 (이미지를 ECR에 올리기 전 상태).
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# 결정 상태(in-flight)가 메모리에 있어서 replica는 반드시 1, Recreate (DESIGN.md SPOF 참고).
+# 웹훅이 내려가 있으면 failurePolicy Ignore + FAIL_OPEN으로 Pod 생성은 막지 않는다.
+failurePolicy: Ignore
+timeoutSeconds: 10
+failOpen: true
+# karpenter-spot-lab 케이스 D: 역할(base/burst)별 zone/hostname topology spread
+topologySpread: true
+
+# 이 라벨이 있는 네임스페이스의, objectSelector 라벨이 붙은 Pod만 대상
+namespaceSelectorLabel:
+  key: capacity-split
+  value: enabled
+objectSelectorLabel:
+  key: capacity-split.moment.io/enabled
+  value: "true"
+
+nodeSelector: {}
+tolerations: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+certgen:
+  image:
+    repository: registry.k8s.io/ingress-nginx/kube-webhook-certgen
+    tag: v1.6.9
+  secretName: capacity-split-webhook-tls

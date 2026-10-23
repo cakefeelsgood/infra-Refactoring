@@ -1,0 +1,20 @@
+namespace: capacity-split-system
+
+# ECR 저장소는 terraform/environments/prod/main.tf의 prod_ecr 모듈(capacity-split-webhook)이 만든다.
+# 이미지 빌드·푸시 후 tag를 채우면 리소스가 렌더링된다. 비어 있으면 아무것도 배포되지 않는다.
+# 빌드: docker buildx build --platform linux/amd64 tools/capacity-split-webhook (docs/karpenter.md)
+image:
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-prod-capacity-split-webhook
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# 컨트롤러 계열과 같은 ops On-Demand 노드그룹 (Karpenter 노드에 의존하지 않음)
+nodeSelector:
+  workload: ops
+  capacity: on-demand
+
+tolerations:
+  - key: workload
+    operator: Equal
+    value: ops
+    effect: NoSchedule

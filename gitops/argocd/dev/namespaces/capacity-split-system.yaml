@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capacity-split-system
+  labels:
+    app.kubernetes.io/part-of: moment
+    environment: dev
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
