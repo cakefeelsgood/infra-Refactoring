@@ -53,9 +53,9 @@ resources:
     cpu: "1500m"
     memory: "2Gi"
 
-# Spot 노드에 배치 (AI 추론 워크로드)
+# Karpenter spot-burst NodePool에 배치 (AI 추론 워크로드)
 nodeSelector:
-  workload: ai
+  karpenter.sh/capacity-type: spot
 
 tolerations:
   - key: "capacity"
@@ -64,6 +64,10 @@ tolerations:
     effect: "NoSchedule"
 
 affinity: {}
+
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+topologySpreadConstraints: []
 
 # Rolling Update 전략 (Spot 중단 고려 - maxUnavailable: 0 불가, 1로)
 strategy:

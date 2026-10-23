@@ -20,8 +20,15 @@ spec:
     metadata:
       labels:
         {{- include "backend-api.labels" . | nindent 8 }}
+        {{- if .Values.capacitySplit.enabled }}
+        {{- /* Opt-in for the capacity-split webhook (objectSelector). */}}
+        capacity-split.moment.io/enabled: "true"
+        {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "backend-api.fullname" .) }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
       containers:
         - name: backend-api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -61,15 +68,35 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.nodeSelector }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- /*
+        capacitySplit.enabled: the webhook adds the on-demand affinity + toleration to base pods
+        (HPA minReplicas). The template carries only the burst defaults, so a pod admitted while the
+        webhook is unavailable (failurePolicy Ignore) is scheduled as burst on Spot.
+        Disabled: every pod uses nodeSelector/tolerations below (all on-demand).
+      */}}
+      {{- $nodeSelector := ternary .Values.capacitySplit.nodeSelector .Values.nodeSelector .Values.capacitySplit.enabled }}
+      {{- $tolerations := ternary .Values.capacitySplit.tolerations .Values.tolerations .Values.capacitySplit.enabled }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with $tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- $affinity := deepCopy (.Values.affinity | default dict) }}
+      {{- if .Values.capacitySplit.enabled }}
+      {{- $_ := set $affinity "nodeAffinity" .Values.capacitySplit.nodeAffinity }}
+      {{- end }}
+      {{- with $affinity }}
       affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

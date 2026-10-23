@@ -99,14 +99,17 @@ pdb:
   enabled: false
   minAvailable: 1
 
+# SQS worker: 처리 중인 메시지를 마칠 시간 (트래픽을 받지 않으므로 preStop 없음)
+terminationGracePeriodSeconds: 60
+
+# Karpenter on-demand-base NodePool (기존 batch On-Demand 노드그룹 배치 유지)
 nodeSelector:
-  workload: batch
-  capacity: on-demand
+  karpenter.sh/capacity-type: on-demand
 
 tolerations:
-  - key: workload
+  - key: capacity
     operator: Equal
-    value: batch
+    value: on-demand
     effect: NoSchedule
 
 affinity: {}

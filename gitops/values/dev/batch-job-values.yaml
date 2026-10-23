@@ -88,14 +88,12 @@ strategy:
 pdb:
   enabled: false
   minAvailable: 1
+# SQS worker: 처리 중인 메시지를 마칠 시간 (트래픽을 받지 않으므로 preStop 없음)
+terminationGracePeriodSeconds: 60
+# Karpenter spot-burst NodePool (기존 batch Spot 배치 유지)
 nodeSelector:
-  workload: batch
-  capacity: spot
+  karpenter.sh/capacity-type: spot
 tolerations:
-  - key: workload
-    operator: Equal
-    value: batch
-    effect: NoSchedule
   - key: capacity
     operator: Equal
     value: spot

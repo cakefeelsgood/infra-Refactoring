@@ -141,16 +141,34 @@ strategy:
     maxSurge: 1
     maxUnavailable: 0
 
-# HA: PDB - prod replica 2이므로 minAvailable 1 적용
+# HA: PDB - karpenter-spot-lab 케이스 D와 같은 minAvailable 50% (replica 2 → 1개 보호)
 pdb:
   enabled: true
-  minAvailable: 1
+  minAvailable: 50%
 
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+
+# Karpenter on-demand-base NodePool (capacitySplit 비활성 시 모든 Pod)
 nodeSelector:
-  workload: core
-  capacity: on-demand
+  karpenter.sh/capacity-type: on-demand
 
-tolerations: []
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: on-demand
+    effect: NoSchedule
+
+# base/burst 분할: HPA minReplicas(2)까지 on-demand, 초과분 Spot.
+# capacity-split 웹훅 이미지를 ECR에 올리고 gitops/values/prod/capacity-split-webhook-values.yaml의
+# image.tag를 채운 뒤 true로 바꾼다 (docs/karpenter.md 활성화 절차).
+capacitySplit:
+  enabled: false
 
 # HA: topology - prod core 노드 2개 (3a, 3c) 멀티AZ 분산
 affinity:
@@ -166,6 +184,18 @@ affinity:
                   - backend-api
           topologyKey: topology.kubernetes.io/zone
 
+# AZ 분산 (karpenter-spot-lab 케이스 D). Karpenter가 부족한 AZ에 노드를 띄운다.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: backend-api
+        app.kubernetes.io/instance: backend-api-prod
+    matchLabelKeys:
+      - pod-template-hash
+
 ingress:
   enabled: true
   className: alb
@@ -175,6 +205,8 @@ ingress:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/success-codes: "200,401"
+    # karpenter-spot-lab 고정값: 종료 중인 대상은 30초 안에 빠진다 (preStop 20s < 30s < grace 60s)
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     external-dns.alpha.kubernetes.io/hostname: origin-prod-api.moment-team04.click
   hosts:
