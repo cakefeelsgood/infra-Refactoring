@@ -40,8 +40,8 @@ type admissionReview struct {
 }
 
 type handler struct {
-	decider  *Decider
-	opt      PatchOptions
+	decider *Decider
+	opt     PatchOptions
 	// failOpen admits the pod unmodified when the decision cannot be made (API lookup error).
 	// The lab ran fail-closed (failurePolicy Fail, deny on error) so that no pod could carry an
 	// unknown role and contaminate the experiment. In production the webhook runs as a single
