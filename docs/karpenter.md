@@ -90,16 +90,24 @@
 - Spot 용량이 부족하면 burst Pod는 Pending이다(D-004).
 - 실험에 없던 운영 조건: ap-northeast-3 리전, K8s 1.35, xlarge 허용, 실제 서비스 이미지. 실험 수치가 그대로 재현된다고 보장하지 않는다.
 
+### 웹훅이 기본으로 꺼져 있는 이유
+
+1. **이미지가 없다.** 웹훅은 이 레포의 Go 코드(`tools/capacity-split-webhook`)라서 빌드해서 ECR(`moment-<env>-capacity-split-webhook`, 태그 IMMUTABLE)에 올려야 한다. 이미지 없이 켜면 Pod가 `ImagePullBackOff`가 된다. 그래서 차트는 `image.tag`가 비어 있으면 아무 리소스도 만들지 않는다.
+2. **fail-open이라 켜는 순서가 중요하다.** 웹훅 Pod가 Ready가 되기 전에 backend-api의 `capacitySplit`을 켜면, 그 사이에 생성된 Pod는 모두 burst로 들어간다. 이 Pod들은 Spot에 배치되고 `pod-deletion-cost`도 없다. 이렇게 생긴 base 부족은 Pod가 다시 만들어질 때까지 고쳐지지 않는다.
+3. 이 두 단계를 Git 변경만으로 안전하게 진행할 경로가 없었다. 지금은 `.github/workflows/capacity-split-webhook.yml`로 보완했다.
+
+게이트가 꺼져 있는 동안 backend-api는 전부 `on-demand-base`에 배치된다. 기존과 같은 전부 On-Demand 동작이고, 서비스는 정상이다.
+
 ### 활성화 절차 (사용자 승인 후)
 
-1. 이미지 빌드·푸시: ECR `moment-<env>-capacity-split-webhook`(Terraform `<env>_ecr`가 생성, 태그 IMMUTABLE)
-   ```bash
-   docker buildx build --platform linux/amd64 -t <ecr>/moment-<env>-capacity-split-webhook:<tag> --push tools/capacity-split-webhook
-   ```
-2. `gitops/values/<env>/capacity-split-webhook-values.yaml`의 `image.tag`를 채운다 → 웹훅 리소스가 렌더링된다
-3. 웹훅 Pod Ready, `MutatingWebhookConfiguration capacity-split-webhook`의 `caBundle`이 채워졌는지 확인한다
-4. `gitops/values/<env>/backend-api-values.yaml`의 `capacitySplit.enabled: true`
-5. 확인: `kubectl get pods -n moment-<env> -l app.kubernetes.io/name=backend-api -L capacity-role,karpenter.sh/capacity-type -o wide`와 `pod-deletion-cost` annotation
+| 단계 | 방법 | 확인 |
+| --- | --- | --- |
+| 1 | GitHub Actions `capacity-split webhook image / activation`, `mode=build-and-deploy`, `environment=<env>` (develop에서 실행): go test → linux/amd64 빌드 → ECR 푸시(`<env>-<sha>`) → webhook values `image.tag` 커밋 | ArgoCD `capacity-split-webhook-<env>` Synced. certgen Job 2개 Complete, 웹훅 Pod Ready, `kubectl get mutatingwebhookconfiguration capacity-split-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'`가 비어 있지 않음 |
+| 2 | 같은 워크플로, `mode=enable-backend-split`: backend-api `capacitySplit.enabled=true` 커밋. 웹훅 태그가 비어 있으면 실패한다 | backend-api가 롤링되며 새 Pod에 라벨이 붙음 |
+| 3 | 배치 확인 | `kubectl get pods -n moment-<env> -l app.kubernetes.io/name=backend-api -L capacity-role -o wide`에서 base Pod 수가 HPA `minReplicas`(prod 2, dev 1)와 같고 on-demand 노드에 있음. 나머지는 burst(Spot). annotation `controller.kubernetes.io/pod-deletion-cost`가 1000 / -1000 |
+| 되돌리기 | 같은 워크플로, `mode=disable-backend-split` | 전부 on-demand-base로 돌아옴 |
+
+워크플로가 커밋하기 전에 `check-capacity-placement.rb`와 `check-karpenter-wiring.rb`를 돌린다. OIDC Role(`moment-<env>-github-actions-role`)은 infra 레포 `develop`만 신뢰하므로 다른 브랜치나 fork에서는 AWS에 접근하지 못한다.
 
 ## 적용 순서 (배포 시, 사용자 승인 후)
 
@@ -107,13 +115,62 @@ dev의 서비스 앱(`backend-api-dev` 등)은 `develop` 자동 동기화라서,
 
 | 단계 | 내용 | 확인 |
 | --- | --- | --- |
-| 0 | 배포 전 확인(Karpenter 1.15.x ↔ K8s 1.26–1.37 호환은 공식 매트릭스로 확인 완료): ap-northeast-3 a/c의 Spot 후보 풀(`c/m/r`, 5세대 이후, large/xlarge), EC2 Spot 서비스 연결 역할(`AWSServiceRoleForEC2Spot`) 존재, [VPC CNI 런북](runbooks/vpc-cni-prefix-delegation.md)의 `/24` 서브넷 `/28` 여유 | |
+| 0 | 배포 전 확인(Karpenter 1.15.x ↔ K8s 1.26–1.37 호환은 공식 매트릭스로 확인 완료): ap-northeast-3 a/c의 Spot 후보 풀(`c/m/r`, 5세대 이후, large/xlarge), EC2 Spot 서비스 연결 역할(`AWSServiceRoleForEC2Spot`) 존재(없으면 `<env>_karpenter_create_spot_service_linked_role = true`), [VPC CNI 런북](runbooks/vpc-cni-prefix-delegation.md)의 `/24` 서브넷 `/28` 여유 | |
 | 1 | **PR-A 머지**: Terraform 전체 + Karpenter GitOps(CRD, 컨트롤러, NodePool). 서비스 values와 웹훅 게이트는 제외 | |
 | 2 | Terraform `apply -target=module.<env>_eks` 먼저: vpc-cni에 PD가 켜진다. `dev/main.tf`는 노드그룹이 addon보다 먼저 만들어지도록 의존성이 없어서(e02f746), 한 번에 apply하면 maxPods 40 노드가 PD보다 먼저 뜰 수 있다 | aws-node env에 `ENABLE_PREFIX_DELEGATION=true` (런북 "적용 후") |
 | 3 | 나머지 Terraform apply: Karpenter 서브넷·IAM·SQS, core/ops MNG maxPods 40(launch template 변경으로 롤링 교체). batch/ai MNG는 `moved` 블록으로 `module.<env>_eks_legacy_nodegroups`로 옮겨지며 유지된다(plan에 destroy가 없어야 한다) | `allocatable.pods`=40 |
 | 4 | ArgoCD: Karpenter CRD → 컨트롤러 → NodePool 동기화(dev는 자동, prod는 수동) | EC2NodeClass `Ready`, 테스트 Pod로 노드 생성 |
 | 5 | **PR-B 머지**: 서비스 차트·values(배치 이동, preStop/grace/spread/PDB). prod는 수동 동기화 | 서비스 Pod가 Karpenter 노드에서 Running |
 | 6 | `enable_<env>_legacy_workload_nodegroups = false` 후 apply: batch/ai MNG 제거 | batch/ai 노드 0 |
-| 7 | 필요 시 웹훅 활성화(위 절차) | |
+| 7 | 웹훅 활성화(위 "활성화 절차" 1~3단계) | base 수 = HPA min, base는 on-demand |
 
 Phase 1의 addon 버그 수정으로 `enableNetworkPolicy=true`가 처음으로 실제 적용된다. `moment-<env>`에 NetworkPolicy(`gitops/apps/<env>/network-policy.yaml`)가 동기화되어 있다면 default-deny가 실제로 동작하기 시작하므로, ALB → Pod(target-type ip, `allow-alb-ingress`)와 DNS(`allow-dns`) 허용이 들어 있는지 함께 점검한다.
+
+## 통합 점검 (2026-10-23, 코드 기준)
+
+apply와 sync를 했을 때 On-Demand 기본 + Spot 확장이 동작하는 구성인지 코드만으로 확인했다. AWS 접근이나 배포는 하지 않았다.
+
+### 배치 정합성: 통과
+
+`scripts/validation/check-capacity-placement.rb`로 확인했다.
+- 노드 모델: core/ops/legacy MNG(Terraform)와 NodePool(YAML)의 라벨·taint를 코드에서 읽는다.
+- Pod: 서비스 차트를 env values로 렌더링하고, 웹훅 패치(`patch.go`)를 base/burst로 흉내 낸다.
+- 비교 대상: nodeSelector, required affinity, taint/toleration. 용량과 topology spread는 시뮬레이션하지 않는다.
+
+| Pod | prod | dev |
+| --- | --- | --- |
+| backend-api, 게이트 off | on-demand-base | on-demand-base |
+| backend-api base (웹훅) | on-demand-base | on-demand-base |
+| backend-api burst (웹훅) | spot-burst | spot-burst |
+| backend-api, 웹훅 장애(fail-open) | spot-burst | spot-burst |
+| ai-service | spot-burst | on-demand-base |
+| batch-job | on-demand-base | spot-burst |
+| capacity-split 웹훅 | ops MNG | ops MNG |
+| legacy batch/ai MNG에 갈 수 있는 워크로드 | 없음 | 없음 |
+
+음성 테스트에서 On-Demand NodePool의 taint를 빼면 burst Pod가 On-Demand에도 갈 수 있게 된다. 이것이 실험의 함정 4(D-004)이고, 체크가 FAIL로 잡는다. `evidence/phase9-*`에 기록했다.
+
+### 점검에서 찾아 보완한 것
+
+| 항목 | 문제 | 보완 |
+| --- | --- | --- |
+| 웹훅 이미지 배포 경로 | 빌드·푸시·태그 반영 경로가 없어 웹훅을 켤 수 없었다 | `.github/workflows/capacity-split-webhook.yml`(빌드·푸시·태그, 게이트 on/off를 단계 분리) |
+| Terraform ↔ ArgoCD 이름 연결 | IRSA Role·노드 Role·큐·클러스터명·ECR 이름이 manifest에 문자열로 들어가 있어서, 오타가 나면 배포 뒤에야 드러난다(AccessDenied, NodeClass NotReady) | `scripts/validation/check-karpenter-wiring.rb` + CI |
+| 배치 정합성 회귀 | 라벨·taint·values 변경이 분리 전략을 깨도 CI가 몰랐다 | `scripts/validation/check-capacity-placement.rb` + CI |
+| EC2 Spot 서비스 연결 역할 | 실험은 Phase 0에서 확인했다. 없으면 Karpenter가 Spot을 못 띄운다 | `<env>_karpenter_create_spot_service_linked_role`(기본 false, 계정 단위라 없을 때만 true) |
+| ALB 헬스체크 | 실험의 고정값(10초 간격, unhealthy 2회, timeout 5초, healthy 2회)이 빠져 있었다 | backend-api Ingress에 반영 |
+
+### 확인했고 문제없는 것
+
+- **egress**: Karpenter 노드 서브넷은 private app 라우트 테이블을 공유한다. 중앙 NAT(TGW) 기본 경로와 S3 게이트웨이 엔드포인트를 같이 쓰므로 SQS, Pricing, ECR, STS에 닿는다.
+- **노드 등록과 SG**: 노드 Role의 `EC2_LINUX` Access Entry(인증 모드 API)가 있다. 노드는 클러스터 primary SG를 쓰므로 데이터 계층 SG와 VPC 엔드포인트 SG 규칙이 MNG와 같게 적용된다.
+- **DaemonSet**: aws-node, kube-proxy, node-exporter(kube-prometheus-stack 61.3.0 기본 toleration `NoSchedule Exists`)가 taint 있는 Karpenter 노드에서도 돈다. loki/promtail은 비활성이다.
+- **스케일 인 순서**: `pod-deletion-cost`는 K8s 1.22+에서 기본 활성이라 EKS 1.35에서 그대로 쓴다.
+
+### 남는 위험 (코드로 해결하지 않음)
+
+- **fail-open의 대가**: 웹훅이 장애 중일 때 생성된 Pod는 burst가 된다. base가 부족해도 base Pod가 다시 만들어질 때까지 자동 복구되지 않는다(DESIGN.md).
+- **Spot 용량 부족**: burst Pod는 Pending이 된다(D-004 트레이드오프).
+- **Karpenter 컨트롤러 2 replica**: 차트 기본값이 zone `DoNotSchedule` + hostname anti-affinity라서 prod ops MNG 2대가 서로 다른 AZ에 있어야 한다. ASG가 AZ 균형을 맞추지만 보장되지는 않는다.
+- **prod 플래그 순서**: `enable_prod_karpenter`는 기본 false다. prod Karpenter 앱과 서비스 values는 Terraform을 적용하기 전에 sync하지 않는다(prod 앱은 수동 sync).
+- **core MNG 크기**: core MNG는 시스템 애드온만 남지만 크기(prod 2~4대)는 그대로 뒀다. 이전 후 사용률을 보고 줄인다.
