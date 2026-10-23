@@ -94,8 +94,8 @@
 
 ## 6. 남은 작업 (코드 밖)
 
-- **웹훅 이미지 빌드·푸시와 게이트 활성화**: 이미지가 없으므로 `capacity-split-webhook-values.yaml`의 `image.tag`가 비어 있고(리소스 0개) backend-api `capacitySplit.enabled: false`다. 이 상태의 backend-api는 전부 On-Demand(현재와 같은 동작)다. 활성화 절차는 `docs/karpenter.md`.
-- 웹훅 Go 테스트 실행(CI 또는 Go 1.27 환경).
+- **웹훅 활성화는 실행만 남았다.** 코드 경로는 9절에서 보완했다. GitHub Actions `capacity-split webhook image / activation`을 `build-and-deploy`로 돌리고, 웹훅이 Ready인지 확인한 뒤 `enable-backend-split`으로 켠다. 실행 전까지 backend-api는 전부 On-Demand다(현재와 같은 동작).
+- AWS 조회가 필요한 배포 전 확인(5절)
 
 ## 7. 커밋 내역
 
@@ -136,3 +136,31 @@
 | 질문 | EC2 Spot 서비스 연결 역할, NetworkPolicy가 ALB→Pod·DNS 허용하는지 | 5절 배포 전 확인 목록에 추가 |
 
 리뷰어가 문제없다고 본 영역: Karpenter IAM(terraform-aws-modules 21.29 대비), SQS/EventBridge/Access Entry/SG 태그, /20 서브넷과 라우팅, `configuration_values` 전달과 `service_account_role_arn` 로직, nodeadm MIME, Karpenter 차트 렌더링과 AppProject, 웹훅 차트(certgen·RBAC·selector·ignoreDifferences), 서비스 스케줄링(core/ops로 새지 않음), Go 코드(컴파일·테스트 예상 통과), 문서의 근거 표현.
+
+## 9. 통합 점검 (On-Demand 기본 + Spot 확장이 apply·sync 후 실제로 동작하는가)
+
+코드만 검토했고 AWS 접근은 없다. 상세는 [`docs/karpenter.md`](../karpenter.md) "통합 점검"에 있다.
+
+- **배치 정합성: 통과.** 노드 모델은 Terraform MNG와 NodePool에서, Pod는 helm 렌더링과 웹훅 패치 에뮬레이션에서 가져왔다. 그 결과 다음을 정적으로 확인했다. 결과는 `evidence/phase9-placement.log`에 있다.
+  - base는 on-demand-base, burst와 fail-open Pod는 spot-burst에만 배치된다.
+  - ai-service와 batch-job은 기존 배치를 유지한다.
+  - 웹훅은 ops MNG에 배치된다.
+  - legacy MNG에 의존하는 워크로드는 없다.
+- **음성 테스트**: 5종 모두 FAIL로 잡았다(`evidence/phase9-placement-wiring-negative.log`).
+  - OD taint 제거: 실험의 함정 4가 재현된다.
+  - Karpenter 전용 affinity 제거: burst Pod가 core MNG로 샌다.
+  - ai-service nodeSelector 제거.
+  - 노드 Role 이름 오타.
+  - 큐 이름 오타.
+- **Terraform ↔ ArgoCD 이름 연결**: 26개 항목이 모두 일치한다(`evidence/phase9-wiring.log`).
+- **보완한 것**:
+  - 웹훅 이미지 빌드·푸시·태그 반영과 게이트 on/off 워크플로
+  - 배치 정합성 체크와 이름 연결 체크, 그리고 둘의 CI 연결
+  - EC2 Spot 서비스 연결 역할 옵션
+  - 실험의 ALB 헬스체크 고정값
+- **남는 위험**:
+  - fail-open일 때 base 부족이 자동 복구되지 않는다.
+  - Spot이 부족하면 burst Pod가 Pending이 된다.
+  - Karpenter 2 replica를 서로 다른 AZ의 ops 노드에 띄워야 한다.
+  - prod 플래그 순서.
+  - core MNG 크기 재조정.

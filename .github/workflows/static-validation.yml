@@ -7,6 +7,7 @@ on:
       - "terraform/**"
       - "gitops/**"
       - "scripts/validation/**"
+      - ".github/workflows/capacity-split-webhook.yml"
       - "tools/capacity-split-webhook/**"
       - ".github/workflows/static-validation.yml"
   workflow_dispatch:
@@ -70,6 +71,12 @@ jobs:
               helm template "$c-$env" "$chart" -f "$values" > /dev/null
             done
           done
+
+      - name: On-Demand base / Spot burst placement (static scheduling check)
+        run: ruby scripts/validation/check-capacity-placement.rb
+
+      - name: Terraform names hard-coded in ArgoCD manifests
+        run: ruby scripts/validation/check-karpenter-wiring.rb
 
   webhook:
     name: capacity-split webhook unit tests

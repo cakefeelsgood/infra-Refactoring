@@ -147,6 +147,14 @@
 - [x] MEDIUM: prod EC2NodeClass AMI 고정 `al2023@v20261012`(K8s 1.33–1.35 포함 확인)
 - [x] LOW: 웹훅 decode/marshal 오류도 fail-open, Karpenter 노드 Role SSM 정책 partition, 검증 스크립트(legacy 모듈, 역할 연결, 모듈의 max_pods 렌더링)
 
+### Phase 9. 통합 점검과 보완 (apply·sync 후 동작 가능성, 코드 기준)
+- [x] 웹훅이 비활성화된 이유 정리(이미지 없음, fail-open이라 켜는 순서가 중요, 배포 경로 없음)
+- [x] 배치 정합성 정적 체크 `scripts/validation/check-capacity-placement.rb` + 음성 테스트 + CI
+- [x] Terraform ↔ ArgoCD 이름 연결 체크 `scripts/validation/check-karpenter-wiring.rb` + 음성 테스트 + CI
+- [x] 웹훅 이미지 빌드·푸시·태그 반영, 게이트 on/off 워크플로 `.github/workflows/capacity-split-webhook.yml`
+- [x] EC2 Spot 서비스 연결 역할 옵션, 실험 ALB 헬스체크 고정값
+- [x] `docs/karpenter.md` 통합 점검, 활성화 절차, 남는 위험
+
 ## 5. 완료 기준
 - [x] 모든 Phase 체크 완료, 정적 검증 전부 통과
 - [x] PD와 maxPods가 같은 커밋에 있음 (`ca526b6`)

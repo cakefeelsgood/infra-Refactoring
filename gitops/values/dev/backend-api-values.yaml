@@ -189,6 +189,11 @@ ingress:
     alb.ingress.kubernetes.io/success-codes: "200,401"
     # karpenter-spot-lab 고정값: 종료 중인 대상은 30초 안에 빠진다 (preStop 20s < 30s < grace 60s)
     alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+    # karpenter-spot-lab 고정값: 경고 없이 사라진 대상을 10초 x 2회 안에 unhealthy로 판정
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
   hosts:
     - host: ""
