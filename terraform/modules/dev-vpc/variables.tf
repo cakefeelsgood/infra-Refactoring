@@ -28,6 +28,12 @@ variable "private_app_subnet_cidrs" {
   type        = list(string)
 }
 
+variable "karpenter_node_subnet_cidrs" {
+  description = "Private subnet CIDR blocks for Karpenter nodes, one per availability zone. Empty list creates none."
+  type        = list(string)
+  default     = []
+}
+
 variable "private_data_subnet_cidrs" {
   description = "Private data subnet CIDR blocks for RDS, Redis, OpenSearch, and reserved data subnet."
   type        = list(string)

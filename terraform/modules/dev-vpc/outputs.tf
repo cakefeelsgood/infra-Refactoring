@@ -18,6 +18,11 @@ output "dev_private_app_subnet_ids" {
   value       = aws_subnet.private_app[*].id
 }
 
+output "dev_karpenter_node_subnet_ids" {
+  description = "Dev Karpenter node subnet IDs."
+  value       = aws_subnet.karpenter_node[*].id
+}
+
 output "dev_private_data_subnet_ids" {
   description = "Dev private data subnet IDs. The second subnet is reserved for future Multi-AZ data tier."
   value       = aws_subnet.private_data[*].id

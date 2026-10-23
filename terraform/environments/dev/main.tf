@@ -25,6 +25,11 @@ module "dev_ecr" {
       name        = "${var.project_name}-dev-batch-job"
       description = "Batch Job container image repository"
     }
+
+    capacity-split-webhook = {
+      name        = "${var.project_name}-dev-capacity-split-webhook"
+      description = "capacity-split mutating webhook (base on-demand / burst spot) image repository"
+    }
   }
 
   image_tag_mutability = "IMMUTABLE"
@@ -58,6 +63,8 @@ module "dev_vpc" {
     "10.20.10.0/24",
     "10.20.11.0/24"
   ]
+
+  karpenter_node_subnet_cidrs = var.enable_dev_karpenter ? var.dev_karpenter_node_subnet_cidrs : []
 
   private_data_subnet_cidrs = [
     "10.20.20.0/24",

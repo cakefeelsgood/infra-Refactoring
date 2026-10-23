@@ -863,3 +863,18 @@ variable "dev_alerting_target_group_tag_selectors" {
     }
   }
 }
+
+variable "enable_dev_karpenter" {
+  description = "Whether to create the Dev Karpenter AWS resources (controller IRSA, node role, interruption queue, node subnets)."
+  type        = bool
+  default     = true
+}
+
+variable "dev_karpenter_node_subnet_cidrs" {
+  description = "Dev Karpenter node subnet CIDRs, one per AZ (a, c). Sized for VPC CNI Prefix Delegation /28 reservations; must stay inside dev_vpc_cidr and outside the existing subnets."
+  type        = list(string)
+  default = [
+    "10.20.32.0/20",
+    "10.20.48.0/20"
+  ]
+}

@@ -848,3 +848,18 @@ variable "prod_api_origin_domain_name" {
   type        = string
   default     = ""
 }
+
+variable "enable_prod_karpenter" {
+  description = "Whether to create the Prod Karpenter AWS resources (controller IRSA, node role, interruption queue, node subnets)."
+  type        = bool
+  default     = false
+}
+
+variable "prod_karpenter_node_subnet_cidrs" {
+  description = "Prod Karpenter node subnet CIDRs, one per AZ (a, c). Sized for VPC CNI Prefix Delegation /28 reservations; must stay inside prod_vpc_cidr and outside the existing subnets."
+  type        = list(string)
+  default = [
+    "10.10.32.0/20",
+    "10.10.48.0/20"
+  ]
+}

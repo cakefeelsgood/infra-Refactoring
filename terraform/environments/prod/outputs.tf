@@ -266,3 +266,23 @@ output "prod_api_origin_domain_name" {
   description = "Stable Prod API origin domain used by CloudFront."
   value       = local.prod_edge_origin_domain_name
 }
+
+output "prod_karpenter_node_subnet_ids" {
+  description = "Prod Karpenter node subnet IDs (karpenter.sh/discovery tagged)."
+  value       = try(module.prod_vpc[0].prod_karpenter_node_subnet_ids, [])
+}
+
+output "prod_karpenter_controller_role_arn" {
+  description = "Prod Karpenter controller IRSA role ARN. Referenced by gitops/argocd/prod/applications/karpenter-prod.yaml."
+  value       = try(module.prod_karpenter[0].controller_role_arn, null)
+}
+
+output "prod_karpenter_node_role_name" {
+  description = "Prod Karpenter node role name. Referenced by gitops/apps/prod/karpenter/ec2nodeclass.yaml."
+  value       = try(module.prod_karpenter[0].node_role_name, null)
+}
+
+output "prod_karpenter_interruption_queue_name" {
+  description = "Prod Karpenter interruption SQS queue name. Referenced by Karpenter settings.interruptionQueue."
+  value       = try(module.prod_karpenter[0].interruption_queue_name, null)
+}
