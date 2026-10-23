@@ -107,7 +107,7 @@ dev의 서비스 앱(`backend-api-dev` 등)은 `develop` 자동 동기화라서,
 
 | 단계 | 내용 | 확인 |
 | --- | --- | --- |
-| 0 | 배포 전 확인: Karpenter 1.15.0 ↔ EKS 1.35 공식 호환 표, ap-northeast-3 a/c의 Spot 후보 풀(`c/m/r`, 5세대 이후, large/xlarge), EC2 Spot 서비스 연결 역할(`AWSServiceRoleForEC2Spot`) 존재, [VPC CNI 런북](runbooks/vpc-cni-prefix-delegation.md)의 `/24` 서브넷 `/28` 여유 | |
+| 0 | 배포 전 확인(Karpenter 1.15.x ↔ K8s 1.26–1.37 호환은 공식 매트릭스로 확인 완료): ap-northeast-3 a/c의 Spot 후보 풀(`c/m/r`, 5세대 이후, large/xlarge), EC2 Spot 서비스 연결 역할(`AWSServiceRoleForEC2Spot`) 존재, [VPC CNI 런북](runbooks/vpc-cni-prefix-delegation.md)의 `/24` 서브넷 `/28` 여유 | |
 | 1 | **PR-A 머지**: Terraform 전체 + Karpenter GitOps(CRD, 컨트롤러, NodePool). 서비스 values와 웹훅 게이트는 제외 | |
 | 2 | Terraform `apply -target=module.<env>_eks` 먼저: vpc-cni에 PD가 켜진다. `dev/main.tf`는 노드그룹이 addon보다 먼저 만들어지도록 의존성이 없어서(e02f746), 한 번에 apply하면 maxPods 40 노드가 PD보다 먼저 뜰 수 있다 | aws-node env에 `ENABLE_PREFIX_DELEGATION=true` (런북 "적용 후") |
 | 3 | 나머지 Terraform apply: Karpenter 서브넷·IAM·SQS, core/ops MNG maxPods 40(launch template 변경으로 롤링 교체). batch/ai MNG는 `moved` 블록으로 `module.<env>_eks_legacy_nodegroups`로 옮겨지며 유지된다(plan에 destroy가 없어야 한다) | `allocatable.pods`=40 |
