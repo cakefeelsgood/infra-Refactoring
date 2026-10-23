@@ -1,0 +1,76 @@
+{{- if eq (.Values.mode | default "cronjob") "worker" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "batch-job.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "batch-job.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "batch-job.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "batch-job.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/part-of: moment
+        environment: {{ .Values.namespace | replace "moment-" "" }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default (include "batch-job.fullname" .) }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      containers:
+        - name: batch-job
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.config }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "batch-job.fullname" . }}-config
+          {{- end }}
+          {{- if .Values.secretRefs }}
+          env:
+            {{- range .Values.secretRefs }}
+            - name: {{ .envName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: {{ .secretKey }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

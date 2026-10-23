@@ -1,0 +1,82 @@
+namespace: "moment"
+
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+config: {}
+secretRefs: []
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 12
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 6
+  successThreshold: 1
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 0
+  periodSeconds: 15
+  timeoutSeconds: 2
+  failureThreshold: 5
+  successThreshold: 1
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1500m"
+    memory: "2Gi"
+
+# Karpenter spot-burst NodePool에 배치 (AI 추론 워크로드)
+nodeSelector:
+  karpenter.sh/capacity-type: spot
+
+tolerations:
+  - key: "capacity"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"
+
+affinity: {}
+
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+topologySpreadConstraints: []
+
+# Rolling Update 전략 (Spot 중단 고려 - maxUnavailable: 0 불가, 1로)
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# PDB: Spot이므로 검토 후 적용 (replica 1이면 minAvailable 1은 업데이트 불가 → 비활성)
+pdb:
+  enabled: false
+  minAvailable: 1

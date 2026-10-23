@@ -1,0 +1,43 @@
+dataTierCidrs:
+  - "10.10.20.0/24"
+  - "10.10.21.0/24"
+
+dataTierEgress:
+  enabled: true
+  workloads:
+    - name: backend-api
+      podSelector:
+        app.kubernetes.io/name: backend-api
+      ports:
+        - 5432
+        - 6379
+        - 443
+    - name: batch-job
+      podSelector:
+        app.kubernetes.io/name: batch-job
+      ports:
+        - 5432
+        - 443
+    - name: ai-service
+      podSelector:
+        app.kubernetes.io/name: ai-service
+      ports:
+        - 443
+
+serviceEgress:
+  enabled: true
+  rules:
+    - name: backend-api-to-ai-service
+      fromPodSelector:
+        app.kubernetes.io/name: backend-api
+      toPodSelector:
+        app.kubernetes.io/name: ai-service
+      ports:
+        - 8000
+    - name: ai-service-to-backend-api
+      fromPodSelector:
+        app.kubernetes.io/name: ai-service
+      toPodSelector:
+        app.kubernetes.io/name: backend-api
+      ports:
+        - 8080

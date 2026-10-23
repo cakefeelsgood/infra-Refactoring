@@ -1,0 +1,200 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+exec > >(tee /var/log/moment-openvpn-user-data.log | logger -t moment-openvpn-user-data -s 2>/dev/console) 2>&1
+
+AWS_REGION="${aws_region}"
+CLIENT_PROFILE_SECRET_ARN="${client_profile_secret_arn}"
+PUBLIC_ENDPOINT="${public_endpoint}"
+OPENVPN_PORT="${openvpn_port}"
+OPENVPN_PROTOCOL="${openvpn_protocol}"
+VPN_CIDR="${vpn_cidr}"
+ROUTE_CIDRS="${route_cidrs}"
+ENABLE_MASQUERADE="${enable_masquerade}"
+CLIENT_NAME="${client_name}"
+CLIENT_PROFILE_PATH="/home/ec2-user/$CLIENT_NAME.ovpn"
+
+echo "[INFO] MoMent OpenVPN bootstrap started"
+
+dnf update -y
+dnf install -y openvpn openssl iptables iptables-services awscli || dnf install -y openvpn openssl iptables iptables-services awscli-2
+
+install -d -m 0755 /etc/openvpn/server
+install -d -m 0700 /etc/openvpn/pki
+
+PKI_DIR="/etc/openvpn/pki"
+
+echo "[INFO] Generate CA certificate with openssl"
+openssl genrsa -out "$PKI_DIR/ca.key" 4096
+openssl req -x509 -new -nodes \
+  -key "$PKI_DIR/ca.key" \
+  -sha256 \
+  -days 3650 \
+  -subj "/CN=MoMent OpenVPN CA" \
+  -out "$PKI_DIR/ca.crt"
+
+echo "[INFO] Generate server certificate"
+openssl genrsa -out "$PKI_DIR/server.key" 2048
+openssl req -new \
+  -key "$PKI_DIR/server.key" \
+  -subj "/CN=moment-openvpn-server" \
+  -out "$PKI_DIR/server.csr"
+
+cat > "$PKI_DIR/server.ext" <<'SERVER_EXT'
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:moment-openvpn-server
+SERVER_EXT
+
+openssl x509 -req \
+  -in "$PKI_DIR/server.csr" \
+  -CA "$PKI_DIR/ca.crt" \
+  -CAkey "$PKI_DIR/ca.key" \
+  -CAcreateserial \
+  -out "$PKI_DIR/server.crt" \
+  -days 825 \
+  -sha256 \
+  -extfile "$PKI_DIR/server.ext"
+
+echo "[INFO] Generate client certificate"
+openssl genrsa -out "$PKI_DIR/$CLIENT_NAME.key" 2048
+openssl req -new \
+  -key "$PKI_DIR/$CLIENT_NAME.key" \
+  -subj "/CN=$CLIENT_NAME" \
+  -out "$PKI_DIR/$CLIENT_NAME.csr"
+
+cat > "$PKI_DIR/client.ext" <<'CLIENT_EXT'
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=clientAuth
+CLIENT_EXT
+
+openssl x509 -req \
+  -in "$PKI_DIR/$CLIENT_NAME.csr" \
+  -CA "$PKI_DIR/ca.crt" \
+  -CAkey "$PKI_DIR/ca.key" \
+  -CAcreateserial \
+  -out "$PKI_DIR/$CLIENT_NAME.crt" \
+  -days 825 \
+  -sha256 \
+  -extfile "$PKI_DIR/client.ext"
+
+echo "[INFO] Generate tls-crypt key"
+openvpn --genkey secret /etc/openvpn/server/ta.key
+
+cp "$PKI_DIR/ca.crt" /etc/openvpn/server/ca.crt
+cp "$PKI_DIR/server.crt" /etc/openvpn/server/server.crt
+cp "$PKI_DIR/server.key" /etc/openvpn/server/server.key
+
+cat > /etc/openvpn/server/server.conf <<SERVER_CONF
+port $OPENVPN_PORT
+proto $OPENVPN_PROTOCOL
+dev tun
+topology subnet
+
+server ${vpn_network} ${vpn_netmask}
+
+${route_push_lines}
+
+keepalive 10 120
+persist-key
+persist-tun
+
+ca ca.crt
+cert server.crt
+key server.key
+dh none
+ecdh-curve prime256v1
+tls-crypt ta.key
+
+data-ciphers AES-256-GCM:AES-128-GCM
+cipher AES-256-GCM
+auth SHA256
+
+user nobody
+group nobody
+
+verb 3
+explicit-exit-notify 1
+SERVER_CONF
+
+cat > /etc/sysctl.d/99-moment-openvpn.conf <<'SYSCTL_CONF'
+net.ipv4.ip_forward = 1
+SYSCTL_CONF
+
+sysctl --system
+
+iptables -C FORWARD -s "$VPN_CIDR" -j ACCEPT 2>/dev/null || iptables -A FORWARD -s "$VPN_CIDR" -j ACCEPT
+iptables -C FORWARD -d "$VPN_CIDR" -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || iptables -A FORWARD -d "$VPN_CIDR" -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+if [ "$ENABLE_MASQUERADE" = "true" ]; then
+  echo "[INFO] OpenVPN MASQUERADE mode enabled"
+  for cidr in $ROUTE_CIDRS; do
+    iptables -t nat -C POSTROUTING -s "$VPN_CIDR" -d "$cidr" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s "$VPN_CIDR" -d "$cidr" -j MASQUERADE
+  done
+else
+  echo "[INFO] OpenVPN routed mode enabled; MASQUERADE disabled for pushed route CIDRs"
+fi
+
+iptables-save > /etc/sysconfig/iptables
+systemctl enable --now iptables
+
+systemctl enable --now openvpn-server@server
+
+cat > "$CLIENT_PROFILE_PATH" <<CLIENT_CONF
+client
+dev tun
+proto $OPENVPN_PROTOCOL
+remote $PUBLIC_ENDPOINT $OPENVPN_PORT
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+auth SHA256
+data-ciphers AES-256-GCM:AES-128-GCM
+cipher AES-256-GCM
+verb 3
+
+<ca>
+$(cat "$PKI_DIR/ca.crt")
+</ca>
+<cert>
+$(cat "$PKI_DIR/$CLIENT_NAME.crt")
+</cert>
+<key>
+$(cat "$PKI_DIR/$CLIENT_NAME.key")
+</key>
+<tls-crypt>
+$(cat /etc/openvpn/server/ta.key)
+</tls-crypt>
+CLIENT_CONF
+
+chown ec2-user:ec2-user "$CLIENT_PROFILE_PATH"
+chmod 600 "$CLIENT_PROFILE_PATH"
+
+echo "[INFO] Upload client profile to Secrets Manager"
+
+for attempt in $(seq 1 12); do
+  if aws secretsmanager put-secret-value \
+    --region "$AWS_REGION" \
+    --secret-id "$CLIENT_PROFILE_SECRET_ARN" \
+    --secret-string "file://$CLIENT_PROFILE_PATH"; then
+    echo "[INFO] Client profile uploaded to Secrets Manager"
+    break
+  fi
+
+  if [ "$attempt" -eq 12 ]; then
+    echo "[ERROR] Failed to upload client profile to Secrets Manager after retries"
+    exit 1
+  fi
+
+  echo "[WARN] Secret upload failed. retry=$attempt"
+  sleep 10
+done
+
+echo "[INFO] OpenVPN bootstrap completed"
+echo "[INFO] Client profile generated at $CLIENT_PROFILE_PATH"
+echo "[INFO] Client profile uploaded to Secrets Manager: $CLIENT_PROFILE_SECRET_ARN"

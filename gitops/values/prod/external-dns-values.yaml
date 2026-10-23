@@ -1,0 +1,32 @@
+image:
+  repository: registry.k8s.io/external-dns/external-dns
+  tag: v0.15.1
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: external-dns
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-prod-external-dns-irsa-role"
+
+provider: aws
+
+sources:
+  - ingress
+
+domainFilters:
+  - moment-team04.click
+
+zoneIdFilters:
+  - Z0631201D3SP8VHP95C7
+
+txtOwnerId: moment-prod
+policy: upsert-only
+registry: txt
+interval: 1m
+logLevel: info
+
+aws:
+  zoneType: public

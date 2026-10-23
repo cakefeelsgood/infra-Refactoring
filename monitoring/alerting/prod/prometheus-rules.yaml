@@ -1,0 +1,391 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: moment-application-alerts-prod
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: moment-application-alerts
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    release: monitoring-prod
+    environment: prod
+spec:
+  groups:
+    - name: moment-prod-targets
+      rules:
+        - alert: MomentBackendTargetDown
+          expr: |
+            absent(up{namespace="moment-prod", service="backend-api"})
+            or
+            max by (namespace, service) (up{namespace="moment-prod", service="backend-api"}) == 0
+          for: 2m
+          labels:
+            environment: prod
+            severity: critical
+            service: backend-api
+            category: application
+            owner: App/Infra
+          annotations:
+            summary: Backend API Prometheus target is down in Prod.
+            description: Prometheus cannot scrape Backend API metrics from the Prod backend-api Service.
+            reason: Backend API Pod, Service, Endpoint, ServiceMonitor, or /actuator/prometheus endpoint may be unavailable.
+            threshold_text: up == 0 for 2m
+            action_hint: Check backend-api pods, Service labels, ServiceMonitor labels, endpoints, and /actuator/prometheus endpoint.
+            runbook_url: docs/runbooks/backend-target-down.md
+
+        - alert: MomentAiServiceTargetDown
+          expr: |
+            absent(up{namespace="moment-prod", service="ai-service"})
+            or
+            max by (namespace, service) (up{namespace="moment-prod", service="ai-service"}) == 0
+          for: 2m
+          labels:
+            environment: prod
+            severity: high
+            service: ai-service
+            category: application
+            owner: AI/Infra
+          annotations:
+            summary: AI Service Prometheus target is down in Prod.
+            description: Prometheus cannot scrape AI Service metrics from the Prod ai-service Service.
+            reason: AI Service Pod, Service, Endpoint, ServiceMonitor, or /metrics endpoint may be unavailable.
+            threshold_text: up == 0 for 2m
+            action_hint: Check ai-service pods, Service labels, ServiceMonitor labels, endpoints, and /metrics endpoint.
+            runbook_url: docs/runbooks/ai-service-target-down.md
+
+    - name: moment-prod-workloads
+      rules:
+        - alert: MomentDeploymentUnavailable
+          expr: |
+            (
+              kube_deployment_spec_replicas{namespace="moment-prod", deployment=~"backend-api|ai-service|batch-job"} > 0
+            )
+            and on (namespace, deployment)
+            (
+              kube_deployment_status_replicas_available{namespace="moment-prod", deployment=~"backend-api|ai-service|batch-job"}
+              < kube_deployment_spec_replicas{namespace="moment-prod", deployment=~"backend-api|ai-service|batch-job"}
+            )
+          for: 5m
+          labels:
+            environment: prod
+            severity: critical
+            service: kubernetes
+            category: workload
+            owner: Infra
+          annotations:
+            summary: MoMent Prod Deployment has unavailable replicas.
+            description: One or more MoMent Prod Deployments have fewer available replicas than desired replicas.
+            reason: Deployment rollout, image pull, secret resolution, node scheduling, or readiness probe may be failing.
+            threshold_text: available replicas < desired replicas for 5m
+            action_hint: Check Deployment rollout, ReplicaSet, Pod events, image pull, ExternalSecret, node scheduling, and readiness probes.
+            runbook_url: docs/runbooks/deployment-unavailable.md
+
+        - alert: MomentPodRestartSpike
+          expr: |
+            sum by (namespace, pod, container) (
+              increase(kube_pod_container_status_restarts_total{namespace="moment-prod", pod=~"(backend-api|ai-service|batch-job).*"}[15m])
+            ) > 2
+          for: 5m
+          labels:
+            environment: prod
+            severity: medium
+            service: kubernetes
+            category: workload
+            owner: Infra
+          annotations:
+            summary: MoMent Prod Pod restart spike detected.
+            description: A MoMent Prod container restarted more than twice within 15 minutes.
+            reason: Liveness probe failure, memory pressure, application startup error, or dependency connection failure may be occurring.
+            threshold_text: restart count increase > 2 within 15m
+            action_hint: Check pod logs, previous container logs, liveness probe, memory limits, application startup errors, and recent deployment.
+            runbook_url: docs/runbooks/pod-restart-spike.md
+
+        - alert: MomentPodCrashLoopBackOff
+          expr: |
+            max by (namespace, pod, container, reason) (
+              kube_pod_container_status_waiting_reason{namespace="moment-prod", reason="CrashLoopBackOff", pod=~"(backend-api|ai-service|batch-job).*"}
+            ) > 0
+          for: 5m
+          labels:
+            environment: prod
+            severity: high
+            service: kubernetes
+            category: workload
+            owner: Infra
+          annotations:
+            summary: MoMent Prod Pod is in CrashLoopBackOff.
+            description: A MoMent Prod container is waiting with CrashLoopBackOff.
+            reason: Application startup failure, invalid environment variable, missing Secret, database connectivity, or application configuration issue may exist.
+            threshold_text: CrashLoopBackOff > 0 for 5m
+            action_hint: Check container logs, previous logs, environment variables, ExternalSecret status, database connectivity, and application configuration.
+            runbook_url: docs/runbooks/pod-crashloop-backoff.md
+
+    - name: moment-prod-backend-http
+      rules:
+        - alert: MomentBackendHigh5xxRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{namespace="moment-prod", service="backend-api", status=~"5..", uri!~"/health|/actuator.*"}[5m]))
+              /
+              clamp_min(sum(rate(http_server_requests_seconds_count{namespace="moment-prod", service="backend-api", uri!~"/health|/actuator.*"}[5m])), 1)
+            ) > 0.05
+            and
+            sum(rate(http_server_requests_seconds_count{namespace="moment-prod", service="backend-api", uri!~"/health|/actuator.*"}[5m])) > 0.1
+          for: 5m
+          labels:
+            environment: prod
+            severity: high
+            service: backend-api
+            category: application
+            owner: Backend/Infra
+          annotations:
+            summary: Backend API 5xx rate is high in Prod.
+            description: More than 5% of non-health Backend API requests returned 5xx during the last 5 minutes.
+            reason: Backend application error, DB/Redis/OpenSearch dependency failure, or downstream failure may be occurring.
+            threshold_text: 5xx rate > 5% with request rate > 0.1 rps for 5m
+            action_hint: Check backend logs, recent deployments, failing endpoints, database connectivity, Redis/OpenSearch connectivity, and ALB target 5xx.
+            runbook_url: docs/runbooks/backend-high-5xx-rate.md
+
+        - alert: MomentBackendHighLatency
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_sum{namespace="moment-prod", service="backend-api", uri!~"/health|/actuator.*"}[5m]))
+              /
+              clamp_min(sum(rate(http_server_requests_seconds_count{namespace="moment-prod", service="backend-api", uri!~"/health|/actuator.*"}[5m])), 1)
+            ) > 1
+            and
+            sum(rate(http_server_requests_seconds_count{namespace="moment-prod", service="backend-api", uri!~"/health|/actuator.*"}[5m])) > 0.1
+          for: 10m
+          labels:
+            environment: prod
+            severity: high
+            service: backend-api
+            category: application
+            owner: Backend/Infra
+          annotations:
+            summary: Backend API average latency is high in Prod.
+            description: Average Backend API latency exceeded 1 second for non-health requests.
+            reason: Slow DB query, OpenSearch latency, Redis latency, external API latency, JVM heap pressure, or CPU pressure may be occurring.
+            threshold_text: average latency > 1s with request rate > 0.1 rps for 10m
+            action_hint: Check slow endpoints, database query time, OpenSearch latency, Redis latency, JVM heap, CPU, and external API calls.
+            runbook_url: docs/runbooks/backend-high-latency.md
+
+    - name: moment-prod-business
+      rules:
+        - alert: MomentApplicationFailureSpike
+          expr: sum(increase(moment_business_application_total{environment="prod", result="failed"}[10m])) > 5
+          for: 2m
+          labels:
+            environment: prod
+            severity: medium
+            service: backend-api
+            category: business
+            owner: Backend
+          annotations:
+            summary: Application failure spike detected in Prod.
+            description: Application API failures increased during the last 10 minutes.
+            reason: Application validation, child/program ID mismatch, seat lock flow, or business rule error may be occurring.
+            threshold_text: failed application count > 5 within 10m
+            action_hint: Check application validation errors, child/program IDs, seat lock flow, and backend logs.
+            runbook_url: docs/runbooks/application-failure-spike.md
+
+        - alert: MomentPaymentFailureSpike
+          expr: sum(increase(moment_business_payment_total{environment="prod", result="failed"}[10m])) > 5
+          for: 2m
+          labels:
+            environment: prod
+            severity: medium
+            service: backend-api
+            category: business
+            owner: Backend
+          annotations:
+            summary: Payment failure spike detected in Prod.
+            description: Payment API failures increased during the last 10 minutes.
+            reason: Toss configuration, payment state flow, application ID consistency, or external payment dependency may be failing.
+            threshold_text: failed payment count > 5 within 10m
+            action_hint: Check Toss configuration, payment state flow, application IDs, and backend logs.
+            runbook_url: docs/runbooks/payment-failure-spike.md
+
+        - alert: MomentSearchFailureSpike
+          expr: sum(increase(moment_business_search_requests_total{environment="prod", result="failed"}[10m])) > 10
+          for: 2m
+          labels:
+            environment: prod
+            severity: medium
+            service: backend-api
+            category: business
+            owner: Backend/Search
+          annotations:
+            summary: Search failure spike detected in Prod.
+            description: Search API failures increased during the last 10 minutes.
+            reason: Search request parameter issue, OpenSearch connectivity issue, or AI rerank dependency issue may be occurring.
+            threshold_text: failed search count > 10 within 10m
+            action_hint: Check search request parameters, OpenSearch connectivity, AI rerank dependency, and backend logs.
+            runbook_url: docs/runbooks/search-failure-spike.md
+
+        - alert: MomentRecommendationFailureSpike
+          expr: sum(increase(moment_business_recommendation_requests_total{environment="prod", result="failed"}[10m])) > 5
+          for: 2m
+          labels:
+            environment: prod
+            severity: medium
+            service: backend-api
+            category: business
+            owner: Backend
+          annotations:
+            summary: Recommendation failure spike detected in Prod.
+            description: Recommendation API failures increased during the last 10 minutes.
+            reason: Child profile, preference data, recommendation rules, or program data issue may be occurring.
+            threshold_text: failed recommendation count > 5 within 10m
+            action_hint: Check child profile, preference data, recommendation rules, program data, and backend logs.
+            runbook_url: docs/runbooks/recommendation-failure-spike.md
+
+    - name: moment-prod-full-catalog
+      rules:
+        - alert: MomentBackendHpaMaxedOut
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="moment-prod", horizontalpodautoscaler="backend-api"}
+            >=
+            kube_horizontalpodautoscaler_spec_max_replicas{namespace="moment-prod", horizontalpodautoscaler="backend-api"}
+          for: 10m
+          labels:
+            environment: prod
+            severity: medium
+            service: backend-api
+            category: capacity
+            owner: Infra
+          annotations:
+            summary: Backend API HPA reached max replicas in Prod.
+            description: Backend API HPA current replicas reached configured max replicas.
+            reason: Current traffic or CPU demand may exceed the configured scaling ceiling.
+            threshold_text: current replicas >= max replicas for 10m
+            action_hint: Check backend CPU, request rate, latency, HPA events, node capacity, and whether maxReplicas should be increased.
+            runbook_url: docs/runbooks/hpa-maxed-out.md
+
+        - alert: MomentBatchWorkerUnavailable
+          expr: |
+            (
+              kube_deployment_spec_replicas{namespace="moment-prod", deployment="batch-job"} > 0
+            )
+            and on (namespace, deployment)
+            (
+              kube_deployment_status_replicas_available{namespace="moment-prod", deployment="batch-job"} < 1
+            )
+          for: 5m
+          labels:
+            environment: prod
+            severity: high
+            service: batch-job
+            category: data-pipeline
+            owner: Data/Infra
+          annotations:
+            summary: Batch worker is unavailable in Prod.
+            description: Batch worker Deployment has no available replica.
+            reason: Public data SQS processing can stop due to image pull, Secret, scheduling, readiness, or runtime failure.
+            threshold_text: batch-job available replicas < 1 for 5m
+            action_hint: Check batch-job rollout, pods, events, logs, SQS backlog, ExternalSecret, and RDS/OpenSearch connectivity.
+            runbook_url: docs/runbooks/batch-worker-unavailable.md
+
+        - alert: MomentNodeNotReady
+          expr: |
+            kube_node_status_condition{condition="Ready", status="true"} == 0
+          for: 5m
+          labels:
+            environment: prod
+            severity: high
+            service: kubernetes
+            category: infrastructure
+            owner: Infra
+          annotations:
+            summary: Kubernetes node is NotReady in Prod.
+            description: One or more Kubernetes nodes are not Ready.
+            reason: Node pressure, kubelet issue, network issue, EC2 interruption, or EKS node group problem may be occurring.
+            threshold_text: node Ready condition == false for 5m
+            action_hint: Check kubectl get nodes, node describe, node events, EC2 instance state, CNI, kubelet, and node group health.
+            runbook_url: docs/runbooks/node-not-ready.md
+
+        - alert: MomentPendingPodsHigh
+          expr: |
+            sum(kube_pod_status_phase{namespace="moment-prod", phase="Pending"}) > 0
+          for: 10m
+          labels:
+            environment: prod
+            severity: medium
+            service: kubernetes
+            category: scheduling
+            owner: Infra
+          annotations:
+            summary: Pending pods detected in Prod.
+            description: One or more MoMent pods stayed Pending for more than 10 minutes.
+            reason: Node capacity, taint/toleration mismatch, image pull, PVC, or scheduling constraints may block pod scheduling.
+            threshold_text: Pending pod count > 0 for 10m
+            action_hint: Check pending pods, events, node capacity, taints, tolerations, resource requests, and image pull errors.
+            runbook_url: docs/runbooks/pending-pods-high.md
+
+    - name: moment-prod-runtime-failure-catalog
+      rules:
+      - alert: MomentBackendPodCrashLoop
+        expr: |
+          max by (namespace, pod, container) (
+            kube_pod_container_status_waiting_reason{
+              namespace="moment-prod",
+              reason="CrashLoopBackOff",
+              container="backend-api"
+            }
+          ) == 1
+        for: 2m
+        labels:
+          severity: high
+          service: backend-api
+          category: application
+          owner: Backend/Infra
+          environment: prod
+        annotations:
+          summary: "backend-api Pod CrashLoopBackOff"
+          description: "backend-api container is repeatedly crashing."
+          action_hint: "Check backend previous logs, DB auth, Flyway, secret keys, and configmap."
+          runbook_url: "docs/runbooks/pod-crashloop.md"
+
+      - alert: MomentBatchPodCrashLoop
+        expr: |
+          max by (namespace, pod, container) (
+            kube_pod_container_status_waiting_reason{
+              namespace="moment-prod",
+              reason="CrashLoopBackOff",
+              container="batch-job"
+            }
+          ) == 1
+        for: 2m
+        labels:
+          severity: high
+          service: batch-job
+          category: data
+          owner: Data/Infra
+          environment: prod
+        annotations:
+          summary: "batch-job Pod CrashLoopBackOff"
+          description: "batch-job container is repeatedly crashing."
+          action_hint: "Check batch previous logs, DB auth, SQS/S3/OpenSearch config, and worker profile."
+          runbook_url: "docs/runbooks/pod-crashloop.md"
+
+      - alert: MomentArgoCDAppDegraded
+        expr: |
+          max by (name, namespace, project) (
+            argocd_app_info{
+              health_status="Degraded"
+            }
+          ) == 1
+        for: 3m
+        labels:
+          severity: high
+          service: argocd
+          category: gitops
+          owner: Infra
+          environment: prod
+        annotations:
+          summary: "ArgoCD Application Degraded"
+          description: "An ArgoCD Application is degraded."
+          action_hint: "Run argocd --core app get <app>, inspect sync errors, events, and workload health."
+          runbook_url: "docs/runbooks/argocd-app-degraded.md"

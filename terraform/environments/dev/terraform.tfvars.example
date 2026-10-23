@@ -1,0 +1,167 @@
+project_name   = "moment"
+env            = "dev"
+primary_region = "ap-northeast-3"
+
+network_vpc_cidr = "10.0.0.0/16"
+prod_vpc_cidr    = "10.10.0.0/16"
+dev_vpc_cidr     = "10.20.0.0/16"
+
+admin_cidr_blocks = ["112.220.50.35/32"]
+dev_eks_public_access_cidrs = ["112.220.50.35/32"]
+
+# Network OpenVPN admin access
+# Keep disabled by default. Enable only for validation or final demo, then destroy.
+enable_network_openvpn     = false
+openvpn_ami_id             = ""
+openvpn_instance_type      = "t3.micro"
+openvpn_enable_eip         = true
+openvpn_port               = 1194
+openvpn_protocol           = "udp"
+openvpn_vpn_cidr           = "10.8.0.0/24"
+openvpn_client_name        = "moment-admin"
+openvpn_client_profile_secret_name = ""
+openvpn_client_profile_secret_recovery_window_in_days = 0
+openvpn_root_volume_size   = 8
+
+enable_prod_vpc_endpoints = false
+enable_dev_vpc_endpoints  = true
+
+
+# Dev SQS + DLQ
+enable_dev_sqs = true
+
+dev_sqs_visibility_timeout_seconds     = 300
+dev_sqs_message_retention_seconds      = 86400
+dev_sqs_dlq_message_retention_seconds  = 345600
+dev_sqs_max_receive_count              = 3
+dev_sqs_receive_wait_time_seconds      = 10
+dev_sqs_delay_seconds                  = 0
+dev_sqs_max_message_size               = 262144
+dev_sqs_managed_sse_enabled            = true
+
+# Environment-specific Raw Bucket
+enable_dev_s3_raw_bucket = true
+dev_raw_bucket_name      = null
+
+# Profile image upload bucket
+enable_dev_profile_image_bucket       = true
+dev_profile_image_bucket_name         = null
+dev_profile_image_allowed_origins     = ["*"]
+dev_profile_image_public_read_enabled = true
+dev_profile_image_object_key_prefix   = "uploads/profile"
+
+
+# Notification SNS Topic
+enable_dev_notification_sns           = true
+dev_notification_sns_topic_name       = null
+dev_notification_sns_display_name     = "MoMent Dev Notification"
+dev_notification_sns_kms_master_key_id = null
+
+
+# EventBridge Scheduler + Lambda Collector data pipeline
+enable_dev_data_pipeline        = true
+enable_dev_public_data_secrets = false
+enable_prod_data_pipeline = false
+
+data_pipeline_public_data_api_url = ""
+
+data_pipeline_public_data_sources_secret_name = "moment/dev/public-data/source-config"
+
+data_pipeline_public_data_sources_json = <<EOT
+[
+  {
+    "sourceName": "seoul_public_program",
+    "url": "https://example.com/public-data-api",
+    "method": "GET",
+    "contentType": "application/json",
+    "enabled": false,
+    "apiKeySecretName": "moment/dev/public-data/seoul-openapi",
+    "apiKeySecretJsonKey": "apiKey",
+    "apiKeyQueryParam": "KEY"
+  }
+]
+EOT
+
+enable_lambda_collector_secrets_manager_read = true
+
+data_pipeline_schedule_expression   = "rate(1 day)"
+dev_data_pipeline_schedule_state    = "DISABLED"
+prod_data_pipeline_schedule_state   = "DISABLED"
+data_pipeline_lambda_runtime        = "python3.12"
+data_pipeline_lambda_timeout        = 30
+data_pipeline_lambda_memory_size    = 128
+data_pipeline_log_retention_days    = 14
+
+# RDS PostgreSQL
+enable_dev_rds  = true
+
+rds_engine_version         = "17.10"
+rds_parameter_group_family = "postgres17"
+dev_rds_instance_class         = "db.t4g.micro"
+rds_database_name          = "moment"
+rds_master_username        = "moment_admin"
+dev_rds_allocated_storage      = 20
+dev_rds_max_allocated_storage  = 100
+dev_rds_multi_az                = false
+dev_rds_backup_retention_period = 1
+dev_rds_backup_window           = "18:00-19:00"
+dev_rds_maintenance_window      = "sun:19:00-sun:20:00"
+dev_rds_deletion_protection     = false
+dev_rds_skip_final_snapshot     = true
+
+
+# OpenSearch
+enable_dev_opensearch  = true
+enable_prod_opensearch = false
+
+# The OpenSearch service-linked role is account-level.
+# Keep this true only when AWSServiceRoleForAmazonOpenSearchService does not already exist.
+create_opensearch_service_linked_role = true
+
+opensearch_engine_version                         = "OpenSearch_2.17"
+dev_opensearch_instance_type                      = "t3.small.search"
+prod_opensearch_instance_type                     = "t3.medium.search"
+prod_opensearch_instance_count                    = 2
+prod_opensearch_dedicated_master_enabled          = true
+prod_opensearch_dedicated_master_type             = "t3.small.search"
+prod_opensearch_dedicated_master_count            = 3
+prod_opensearch_zone_awareness_enabled            = true
+prod_opensearch_availability_zone_count           = 2
+prod_opensearch_multi_az_with_standby_enabled     = false
+opensearch_ebs_volume_type                        = "gp3"
+dev_opensearch_ebs_volume_size                    = 10
+prod_opensearch_ebs_volume_size                   = 50
+
+# Edge Layer
+enable_edge    = true
+enable_waf     = true
+
+# 도메인 없으면 빈 문자열 유지 (CloudFront 기본 도메인 사용)
+edge_domain_name               = ""
+edge_subject_alternative_names = []
+create_route53_hosted_zone     = false
+
+# Prod ALB 미구성 상태 — ALB 완성 후 아래 값 채울 것
+prod_alb_dns_name      = ""
+prod_alb_https_enabled = false
+
+# CloudFront → ALB 헤더 (실제 배포 전 반드시 변경)
+cloudfront_secret_header_value = "moment-cf-secret-change-me"
+cloudfront_price_class         = "PriceClass_All"
+
+eks_cluster_sg_id = "sg-04fd7dd77b6fd278e"
+
+# Dev EKS worker node traffic uses the EKS cluster primary security group.
+# Keep true so Dev workloads can reach RDS, Redis, and OpenSearch through Data Tier SG rules.
+enable_dev_eks_cluster_sg_ingress_rules = true
+
+# Redis
+enable_dev_redis             = true
+dev_redis_node_type          = "cache.t3.micro"
+dev_redis_num_cache_clusters = 1
+
+# Dev NAT Gateway is disabled during cost-down. Enable only when Dev private app egress is required.
+
+# External Secrets Operator / Runtime Secret Delivery
+# Keep false until Dev EKS is intentionally reactivated and External Secrets Operator is ready.
+enable_dev_external_secrets_irsa = false

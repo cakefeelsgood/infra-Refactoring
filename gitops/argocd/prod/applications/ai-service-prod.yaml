@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-service-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: prod
+spec:
+  project: moment-prod
+  source:
+    repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+    targetRevision: develop
+    path: gitops/charts/ai-service
+    helm:
+      valueFiles:
+        - ../../values/prod/ai-service-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: moment-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

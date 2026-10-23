@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-alerting-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app.kubernetes.io/name: monitoring-alerting
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: prod
+spec:
+  project: monitoring-prod
+  source:
+    repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+    targetRevision: develop
+    path: monitoring/alerting/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

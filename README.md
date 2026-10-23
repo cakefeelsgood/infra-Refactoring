@@ -1,411 +1,639 @@
-# ☁️ MoMent Cloud Infrastructure
+# MoMent Terraform 인프라
 
-![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA?logo=terraform&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-Cloud-FF9900?logo=amazonaws&logoColor=white)
-![EKS](https://img.shields.io/badge/Amazon%20EKS-Kubernetes-326CE5?logo=kubernetes&logoColor=white)
-![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-FE5A1D?logo=argo&logoColor=white)
-![Status](https://img.shields.io/badge/status-in%20progress-blue)
+## 개요
 
-> Terraform 기반 AWS 인프라 구성 및 EKS GitOps 운영 환경  
-> Multi-VPC, Transit Gateway, EKS, RDS, Redis, OpenSearch, CI/CD, Monitoring을 포함한 MoMent 인프라 레포지토리
+MoMent 프로젝트의 AWS 인프라를 Terraform으로 관리합니다.
+Primary Region은 `ap-northeast-3` (Osaka)를 사용합니다.
 
----
-
-## 📌 Overview
-
-**MoMent Infrastructure**는  
-저출산 시대 부모의 양육 부담을 줄이기 위한 AI 육아지원 플랫폼 **MoMent**의 AWS 인프라를 관리하는 레포지토리입니다.
-
-본 레포지토리는 단순히 AWS 리소스를 생성하는 것을 넘어,  
-실제 서비스 운영을 가정한 **Cloud Native Infrastructure** 구조를 설계하고 구현하는 것을 목표로 합니다.
-
-주요 구성은 다음과 같습니다.
-
-- Terraform 기반 Infrastructure as Code
-- Multi-VPC 기반 네트워크 분리
-- Transit Gateway 중심의 VPC 간 라우팅
-- Network VPC 기반 Centralized NAT Gateway
-- EKS 기반 애플리케이션 실행 환경
-- RDS, Redis, OpenSearch 기반 데이터 계층
-- GitHub Actions, ECR, ArgoCD 기반 GitOps 배포 구조
-- Prometheus, Grafana, CloudWatch 기반 모니터링 및 알림 구조
-
----
-
-## 🏗️ Architecture
-
-> 아래 아키텍처는 MoMent 서비스의 AWS 기반 인프라 설계도입니다.
-
-<!-- 
-이미지 파일을 레포에 올린 뒤 아래 경로를 실제 이미지 경로로 맞춰주세요.
-예: docs/images/moment-infra-architecture.png
--->
-
-<img width="3543" height="2231" alt="최종 인프라 아키텍처 이미지" src="https://github.com/user-attachments/assets/d29ca354-6092-4a3e-a42d-26b029147a74" />
-
-
-### Architecture Flow
-
-```text
-User
-  → Route 53
-  → CloudFront
-  → WAF
-  → ALB
-  → EKS Cluster
-  → Backend / AI Service / Batch Job Pods
-  → RDS PostgreSQL / Redis / OpenSearch
+## 디렉토리 구조
 ```
-
-### Admin & Operator Access Flow
-
-```text
-Developer / Infra Operator
-  → IAM Role + MFA
-  → SSM
-  → Private Resources
-```
-
----
-
-## 🌐 Network Design
-
-MoMent 인프라는 단일 AWS 계정 환경에서 여러 VPC를 논리적으로 분리하여 구성합니다.
-
-| VPC | CIDR | 역할 |
-|---|---:|---|
-| Network VPC | `10.0.0.0/16` | 중앙 NAT Gateway, Transit Gateway 연결, 운영 접근 허브 |
-| Prod App VPC | `10.10.0.0/16` | 운영 EKS, ALB, Backend/API/AI/Batch 워크로드 |
-| Prod Data VPC | `10.20.0.0/16` | 운영 RDS, Redis, OpenSearch 데이터 계층 |
-| Dev App VPC | `10.30.0.0/16` | 개발 EKS 및 테스트 워크로드 |
-| Dev Data VPC | `10.40.0.0/16` | 개발 RDS, Redis, OpenSearch 데이터 계층 |
-
-### Network Key Points
-
-- App VPC와 Data VPC를 분리하여 보안 경계를 명확히 설정
-- Prod와 Dev 환경을 VPC 단위로 분리
-- VPC 간 통신은 Transit Gateway를 통해 중앙에서 제어
-- 외부 인터넷 통신은 Network VPC의 Centralized NAT Gateway를 통해 통제
-- Data VPC는 외부에서 직접 접근할 수 없도록 구성
-
----
-
-## 🧩 Infrastructure Components
-
-### 1. Network
-
-- VPC
-- Public Subnet
-- Private App Subnet
-- Private Data Subnet
-- Internet Gateway
-- NAT Gateway
-- Transit Gateway
-- Route Table
-- Security Group
-
-### 2. Application Platform
-
-- Amazon EKS
-- Worker Node Group
-- Backend API Pod
-- AI Service Pod
-- Batch Job Pod
-- Kubernetes Service / Ingress
-- HPA 기반 Auto Scaling 고려
-
-### 3. Data Layer
-
-- Amazon RDS PostgreSQL
-- Amazon ElastiCache Redis
-- Amazon OpenSearch / OpenSearch Serverless Vector Collection
-- Private Data Subnet 기반 데이터 계층 분리
-
-### 4. CI/CD & GitOps
-
-- GitHub Actions
-- Amazon ECR
-- Helm
-- GitOps Manifest
-- ArgoCD
-- EKS 자동 배포
-
-```text
-GitHub Repository
-  → GitHub Actions
-  → Docker Build
-  → Amazon ECR Push
-  → Helm values image tag update
-  → GitOps Repository
-  → ArgoCD Sync
-  → EKS Cluster
-```
-
-### 5. Monitoring & Alert
-
-- Prometheus
-- Grafana
-- CloudWatch
-- SNS
-- Lambda
-- Slack Alert
-
-```text
-EKS Workloads
-  → Prometheus
-  → Grafana Dashboard
-
-AWS Resources
-  → CloudWatch Alarm
-  → SNS
-  → Lambda
-  → Slack
-```
-
-### 6. Data Collection Batch Pipeline
-
-- EventBridge Scheduler
-- Lambda Collector
-- Public Data API
-- S3 Raw Data
-- SQS
-- Spring Batch
-- RDS / OpenSearch
-
-```text
-EventBridge Scheduler
-  → Lambda Collector
-  → Public Data API
-  → S3 Raw Data
-  → SQS
-  → Spring Batch
-  → RDS / OpenSearch
-```
-
----
-
-## ⚙️ Tech Stack
-
-| Category | Stack |
-|---|---|
-| Cloud | AWS |
-| IaC | Terraform |
-| Container Orchestration | Amazon EKS |
-| Container Registry | Amazon ECR |
-| Network | VPC, Subnet, Route Table, NAT Gateway, Transit Gateway |
-| Database | Amazon RDS PostgreSQL |
-| Cache | Amazon ElastiCache Redis |
-| Search | Amazon OpenSearch / OpenSearch Serverless |
-| CI/CD | GitHub Actions, ArgoCD, Helm |
-| Security | IAM, OIDC, MFA, WAF, ACM, Secrets Manager, Security Group |
-| Monitoring | CloudWatch, Prometheus, Grafana, SNS, Slack |
-| Batch Pipeline | EventBridge, Lambda, S3, SQS, Spring Batch |
-
----
-
-## 📂 Repository Structure
-
-현재 인프라 개발은 `develop` 브랜치를 기준으로 진행합니다.
-
-```bash
-msp-team04-infra
-├── terraform
-│   ├── environments
-│   │   ├── dev
-│   │   └── prod
-│   └── modules
-│       ├── network-vpc
-│       ├── app-vpc
-│       ├── data-vpc
-│       ├── transit-gateway
-│       ├── eks
-│       ├── rds
-│       ├── redis
-│       ├── opensearch
-│       ├── ecr
-│       ├── s3
-│       ├── sqs
-│       ├── iam
-│       └── security-group
+terraform/
+├── environments/
+│   └── dev/
+│       ├── main.tf                  # locals (공통 태그)
+│       ├── provider.tf              # AWS provider 설정
+│       ├── variables.tf             # 공통 변수 정의
+│       ├── outputs.tf               # 출력값
+│       └── terraform.tfvars.example # 변수 예시
 │
-├── gitops
-├── monitoring
-├── scripts
-├── docs
-├── .github
-└── README.md
+└── modules/
+├── network-vpc/     # Network VPC
+├── prod-vpc/        # Prod VPC
+├── dev-vpc/         # Dev VPC
+├── transit-gateway/
+├── security-group/
+├── vpc-endpoint/
+├── ecr/
+├── eks/
+├── rds/
+├── redis/
+├── opensearch/
+├── sqs/
+├── s3/
+├── profile-image-bucket/
+└── data-pipeline/
 ```
 
----
+## VPC 구조
 
-## 🌿 Branch Strategy
+| VPC | CIDR | 용도 |
+|-----|------|------|
+| Network VPC | 10.0.0.0/16 | 공통 네트워크 (NAT, IGW 등) |
+| Prod VPC | 10.10.0.0/16 | 운영 환경 |
+| Dev VPC | 10.20.0.0/16 | 개발 환경 |
 
-| Branch | 역할 |
-|---|---|
-| `main` | 안정 버전, 발표 및 배포 기준 브랜치 |
-| `develop` | 인프라 개발 통합 브랜치 |
-| `feature/*` | 개별 이슈 작업 브랜치 |
-| `fix/*` | 버그 수정 브랜치 |
-| `hotfix/*` | 긴급 수정 브랜치 |
+## Provider
 
-### Development Flow
+| Provider | Region | 용도 |
+|----------|--------|------|
+| aws (default) | ap-northeast-3 | 기본 리소스 |
+| aws.use1 | us-east-1 | CloudFront ACM 인증서 |
 
-```text
-feature/*
-  → develop
-  → 검증 완료
-  → main
-```
+## 공통 태그
 
-일반적인 개발 작업은 `develop` 브랜치를 기준으로 진행하며,  
-검증이 완료된 안정 버전만 `main` 브랜치에 반영합니다.
+모든 리소스에 아래 태그가 자동 적용됩니다.
 
----
+| Key | Value |
+|-----|-------|
+| Project | moment |
+| Environment | dev / prod |
+| ManagedBy | terraform |
+| Owner | team04 |
 
-## 🚀 Getting Started
+## 주요 문서
 
-최신 인프라 코드는 `develop` 브랜치에서 확인할 수 있습니다.
+| 문서 | 설명 |
+| --- | --- |
+| docs/sqs.md | SQS + DLQ 구성, Dev/Prod 활성화 정책, IAM 연결 기준 |
+| docs/s3-raw-bucket.md | S3 Raw Bucket Dev/Prod 분리 기준 및 Shared Raw Bucket 정리 기준 |
+| docs/profile-image-bucket.md | 프로필 이미지 업로드용 S3 Bucket, CORS, Backend 권한 연결 기준 |
+| docs/notification-sns.md | SNS 알림 발송용 Topic, Backend Publish 권한, Dev/Prod 활성화 정책 |
+| docs/alb-controller.md | AWS Load Balancer Controller 설치, Dev 검증, Prod 활성화 절차 |
+| docs/data-pipeline.md | EventBridge Scheduler + Lambda Collector 데이터 파이프라인 구성 및 Dev/Prod 활성화 정책 |
+| docs/rds.md | RDS PostgreSQL Dev/Prod 스펙 분리 및 Prod 보호 옵션 기준 |
+| docs/opensearch.md | OpenSearch Dev/Prod 스펙 분리 및 Prod HA 옵션 기준 |
+| docs/karpenter.md | Karpenter On-Demand + Spot 혼합 운영, base/burst 분할 웹훅, 적용 순서 |
+| docs/runbooks/vpc-cni-prefix-delegation.md | VPC CNI Prefix Delegation과 maxPods 정합성, 서브넷 /28 확인 절차 |
+| docs/terraform-environments.md | Dev/Prod Terraform environment 및 state 분리 전략 |
+| docs/gitops.md | GitOps Repository 구조, Helm Chart/Values 경로, ArgoCD Application 경로 기준 |
+| docs/argocd.md | Dev ArgoCD 설치, 접근 방식, repo 연결 및 보안 정리 기준 |
+| docs/m2-close-checklist.md | M2 Infra Bootstrap 최종 완료 체크리스트 및 M3 인수인계 기준 |
+| docs/m2-valid-b-runbook.md | Network / TGW / Data / IAM / Destroy 검증 및 운영 Runbook |
 
-```bash
-git clone https://github.com/Team-msp-architect-2026/msp-team04-infra.git
-cd msp-team04-infra
-git checkout develop
-git pull origin develop
-```
-
-Terraform 작업은 환경 디렉토리 기준으로 진행합니다.
+## 시작하기
 
 ```bash
 cd terraform/environments/dev
+
+cp terraform.tfvars.example terraform.tfvars
+# terraform.tfvars 값 수정 후
+
 terraform init
 terraform fmt -recursive
 terraform validate
 terraform plan
 ```
 
-실제 리소스 생성은 비용이 발생할 수 있으므로 팀 내 합의 후 진행합니다.
+---
+## EKS Managed NodeGroup 분리 기준
 
-```bash
-terraform apply
+> **2026-10-23 변경:** batch/ai 워크로드는 Karpenter NodePool로 옮기고, 기존 batch/ai 노드그룹은 이전이 끝난 뒤 `enable_<env>_legacy_workload_nodegroups = false`로 제거한다(최종적으로 core/ops만 남음). 현재 구성은 [docs/karpenter.md](docs/karpenter.md)를 기준으로 한다. 아래는 이전 기준이다.
+
+MoMent Dev EKS 환경은 워크로드 특성에 따라 On-Demand NodeGroup과 Spot NodeGroup을 분리하여 구성한다.
+
+### 1. Core On-Demand NodeGroup
+
+- NodeGroup: `moment-dev-core-on-demand-ng`
+- capacity type: `ON_DEMAND`
+- label:
+  - `workload=core`
+  - `capacity=on-demand`
+- 기본 desired size: `1`
+
+Core NodeGroup은 서비스의 핵심 요청을 처리하는 안정성 우선 워크로드를 배치하기 위한 NodeGroup이다.
+
+배치 대상은 다음과 같다.
+
+- Backend API
+- 인증/인가 요청 처리
+- 결제 및 예약 요청 처리
+- 사용자 요청 기반의 실시간 API 처리
+
+위 워크로드는 중단 시 사용자 경험에 직접적인 영향을 줄 수 있으므로 Spot이 아닌 On-Demand NodeGroup에 배치한다.
+
+예시 배치 기준:
+
+```yaml
+nodeSelector:
+  workload: core
+  capacity: on-demand
 ```
 
-실습 후 사용하지 않는 리소스는 삭제합니다.
+---
 
-```bash
-terraform destroy
+### 2. Batch Spot NodeGroup
+
+- NodeGroup: `moment-dev-batch-spot-ng`
+- capacity type: `SPOT`
+- label:
+  - `workload=batch`
+  - `capacity=spot`
+- 기본 desired size: `0`
+
+Batch Spot NodeGroup은 중단되어도 재시도 가능한 비핵심 작업을 처리하기 위한 NodeGroup이다.
+
+배치 대상은 다음과 같다.
+
+- 공공데이터 수집 Batch Job
+- 데이터 정제 작업
+- 실패 시 재시도 가능한 비동기 작업
+- 예약된 데이터 적재 작업
+
+Spot NodeGroup은 비용 절감을 목적으로 사용하며, Spot 중단 가능성을 전제로 Job 재시도 정책을 함께 고려한다.
+
+예시 배치 기준:
+
+```yaml
+nodeSelector:
+  workload: batch
+  capacity: spot
+
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "batch"
+    effect: "NoSchedule"
 ```
 
 ---
 
-## 🔐 Security Design
+### 3. AI Spot NodeGroup
 
-MoMent 인프라는 다음 보안 원칙을 기준으로 설계합니다.
+- NodeGroup: `moment-dev-ai-spot-ng`
+- capacity type: `SPOT`
+- label:
+  - `workload=ai`
+  - `capacity=spot`
+- 기본 desired size: `0`
 
-- AWS Access Key 직접 사용 지양
-- GitHub Actions OIDC 기반 AWS 인증
-- IAM Role 기반 최소 권한 적용
-- MFA 기반 운영자 접근
-- SSM 기반 Private Resource 접근
-- Public / Private App / Private Data Subnet 분리
-- Data VPC 외부 직접 접근 차단
-- Security Group 기반 접근 제어
-- WAF를 통한 외부 요청 필터링
-- Secrets Manager를 통한 민감 정보 관리
+AI Spot NodeGroup은 AI 관련 비동기 작업 또는 재시도 가능한 추천/검색 처리 작업을 배치하기 위한 NodeGroup이다.
 
----
+배치 대상은 다음과 같다.
 
-## 📊 Monitoring Design
+- AI 추천 설명 생성
+- 검색 인덱싱 작업
+- Embedding 생성 작업
+- 비동기 AI 처리 워크로드
 
-운영 가시성을 확보하기 위해 다음 항목을 모니터링 대상으로 설정합니다.
+AI 작업은 비용 부담이 커질 수 있으므로 기본적으로 Spot NodeGroup에 배치하되, 실시간성이 강한 요청은 Backend API에서 처리하고 무거운 작업은 비동기로 분리한다.
 
-- EKS Pod 상태
-- Node 리소스 사용량
-- API 요청 수
-- API Latency
-- 4xx / 5xx Error Rate
-- RDS CPU / Connection / Storage
-- Redis Memory / Connection
-- OpenSearch Query Latency
-- Batch Job 성공 / 실패 여부
-- CloudWatch Alarm 기반 Slack 알림
+예시 배치 기준:
 
----
+```yaml
+nodeSelector:
+  workload: ai
+  capacity: spot
 
-## 💰 Cost Control
-
-본 프로젝트는 교육 및 포트폴리오 목적의 실습 환경을 포함하므로 비용 최적화를 고려합니다.
-
-- 실습 시간에만 리소스 생성
-- 사용 후 Terraform destroy 수행
-- Dev 환경은 최소 사양 우선 적용
-- Prod 환경은 확장 시나리오 기준으로 설계
-- NAT Gateway, RDS, EKS Node 비용 주의
-- 불필요한 리소스 장시간 실행 방지
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "ai"
+    effect: "NoSchedule"
+```
 
 ---
 
-## 🧠 Design Notes
+### 4. Ops NodeGroup
 
-### 왜 Multi-VPC 구조인가?
+- NodeGroup: `moment-dev-ops-on-demand-ng`
+- capacity type: `ON_DEMAND`
+- label:
+  - `workload=ops`
+  - `capacity=on-demand`
+- 기본 desired size: `0`
 
-App 계층과 Data 계층을 VPC 단위로 분리하여 보안 경계를 명확히 하고, 장애 영향 범위를 줄이기 위함입니다.
+Ops NodeGroup은 운영 도구를 분리 배치하기 위한 NodeGroup이다.
 
-### 왜 Transit Gateway를 사용하는가?
+배치 대상은 다음과 같다.
 
-VPC Peering을 여러 개 연결하는 방식보다 중앙에서 라우팅을 제어하기 쉽고, 추후 VPC가 추가되어도 확장성이 좋기 때문입니다.
+- ArgoCD
+- Prometheus
+- Grafana
+- Loki
+- 기타 운영 및 모니터링 도구
 
-### 왜 Centralized NAT Gateway를 사용하는가?
+운영 도구는 서비스 워크로드와 분리하여 장애 영향 범위를 줄이는 것을 목표로 한다.
 
-각 VPC마다 NAT Gateway를 두는 대신 Network VPC에 중앙 NAT Gateway를 배치하여 외부 통신 경로를 통제하고, 네트워크 운영 구조를 단순화하기 위함입니다.
+예시 배치 기준:
 
-### 왜 EKS를 사용하는가?
+```yaml
+nodeSelector:
+  workload: ops
 
-Backend API, AI Service, Batch Job 등 서로 다른 워크로드를 분리 운영하고, HPA와 Node Group을 통해 트래픽 변화에 대응하기 위함입니다.
-
-### 왜 GitOps를 사용하는가?
-
-배포 상태를 Git 기준으로 관리하여 변경 이력을 명확히 남기고, ArgoCD를 통해 실제 클러스터 상태와 선언된 상태를 지속적으로 동기화하기 위함입니다.
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "ops"
+    effect: "NoSchedule"
+```
 
 ---
 
-## 🗂️ Related Repositories
+## Dev / Prod NodeGroup 활성화 정책
 
-| Repository | Description |
+MoMent Terraform 구성에서는 Dev 환경을 기본 검증 대상으로 설정하고, Prod NodeGroup은 명시적으로 활성화한 경우에만 생성되도록 구성한다.
+
+기본 정책은 다음과 같다.
+
+- Dev EKS Cluster: 활성화
+- Dev NodeGroup: 활성화
+- Prod EKS Cluster: 기본 비활성화
+- Prod NodeGroup: 기본 비활성화
+
+Prod NodeGroup은 운영 배포 검증 또는 최종 시연 시점에만 명시적으로 활성화한다.
+
+예시:
+
+```hcl
+enable_dev_eks        = true
+enable_dev_nodegroups = true
+
+enable_prod_eks        = false
+enable_prod_nodegroups = false
+```
+
+Prod NodeGroup을 생성해야 하는 경우에만 다음과 같이 변경한다.
+
+```hcl
+enable_prod_eks        = true
+enable_prod_nodegroups = true
+```
+
+이를 통해 개발 중 불필요한 운영 환경 비용을 줄이고, Dev 환경 중심으로 NodeGroup 구성과 배치 전략을 먼저 검증한다.
+
+---
+
+## Spot NodeGroup 운영 전제
+
+Spot NodeGroup은 비용 절감을 위해 사용하지만, AWS에 의해 언제든 중단될 수 있다.
+
+따라서 Spot NodeGroup에는 다음 조건을 만족하는 워크로드만 배치한다.
+
+- 중단되어도 사용자 요청에 직접적인 장애를 주지 않는 작업
+- 실패 후 재시도 가능한 작업
+- Batch Job 또는 비동기 처리 작업
+- 처리 지연은 허용되지만 비용 최적화가 중요한 작업
+
+반대로 다음 워크로드는 Spot NodeGroup에 배치하지 않는다.
+
+- 사용자 실시간 요청 처리
+- 인증/인가
+- 결제/예약 처리
+- 핵심 Backend API
+
+---
+
+## 검증 결과
+
+Dev EKS 환경에서 Managed NodeGroup 생성 및 기본 Add-on 정상화를 확인했다.
+
+검증 명령어:
+
+```bash
+kubectl get nodes -L workload,capacity
+```
+
+확인 결과:
+
+- Core NodeGroup 노드가 `Ready` 상태로 등록됨
+- `workload=core` 라벨 확인
+- `capacity=on-demand` 라벨 확인
+
+Add-on 상태 확인:
+
+```bash
+for addon in vpc-cni coredns kube-proxy aws-ebs-csi-driver; do
+  aws eks describe-addon \
+    --region ap-northeast-3 \
+    --cluster-name moment-dev-eks-cluster \
+    --addon-name $addon \
+    --query "addon.{name:addonName,status:status,health:health}" \
+    --output json
+done
+```
+
+확인 결과:
+
+- `vpc-cni`: ACTIVE
+- `coredns`: ACTIVE
+- `kube-proxy`: ACTIVE
+- `aws-ebs-csi-driver`: ACTIVE
+---
+# EKS Managed NodeGroup 구성 및 워크로드 배치 기준
+
+## 1. 구성 목적
+
+MoMent Dev EKS 환경에서는 워크로드의 중요도와 중단 허용 여부에 따라 Managed NodeGroup을 분리하여 구성한다.
+
+핵심 사용자 요청을 처리하는 워크로드는 안정성을 우선하여 On-Demand NodeGroup에 배치하고, 중단되어도 재시도 가능한 Batch / AI 비동기 작업은 비용 최적화를 위해 Spot NodeGroup에 배치한다.
+
+이를 통해 다음 목적을 달성한다.
+
+- 핵심 서비스 워크로드 안정성 확보
+- Batch / AI 작업 비용 최적화
+- 워크로드별 장애 영향 범위 분리
+- Dev 환경 중심 검증 후 Prod 환경 선택적 확장
+
+---
+
+## 2. Dev / Prod NodeGroup 활성화 정책
+
+현재 Terraform 구성에서는 Dev EKS Cluster와 Dev NodeGroup을 기본 생성 대상으로 사용한다.
+
+Prod EKS 및 Prod NodeGroup은 기본적으로 비활성화하며, 운영 검증 또는 최종 배포가 필요한 경우에만 명시적으로 활성화한다.
+
+### 기본 정책
+
+| 환경 | EKS Cluster | NodeGroup | 기본 상태 |
+|---|---|---|---|
+| Dev | 생성 | 생성 | 활성화 |
+| Prod | 미생성 | 미생성 | 비활성화 |
+
+### 예시 설정
+
+```hcl
+enable_dev_eks        = true
+enable_dev_nodegroups = true
+
+enable_prod_eks        = false
+enable_prod_nodegroups = false
+```
+
+Prod 환경 NodeGroup이 필요한 경우에만 다음과 같이 명시적으로 활성화한다.
+
+```hcl
+enable_prod_eks        = true
+enable_prod_nodegroups = true
+```
+
+현재 검증에서는 Dev NodeGroup만 생성되며, Prod NodeGroup은 생성되지 않도록 구성했다.
+
+---
+
+## 3. NodeGroup 구성
+
+## 3.1 Core On-Demand NodeGroup
+
+| 항목 | 값 |
 |---|---|
-| `msp-team04-frontend` | React Native 기반 MoMent 모바일 앱 |
-| `msp-team04-backend` | Spring Boot 기반 MoMent Backend API 서버 |
-| `msp-team04-infra` | Terraform 기반 AWS 인프라 및 GitOps 운영 환경 |
-| `msp-team04-wiki` | 프로젝트 문서, 회의록, API 명세, 아키텍처 문서 |
+| NodeGroup | `moment-dev-core-on-demand-ng` |
+| capacity type | `ON_DEMAND` |
+| label | `workload=core` |
+| label | `capacity=on-demand` |
+| desired size | `1` |
+
+Core On-Demand NodeGroup은 서비스의 핵심 요청을 처리하는 워크로드를 배치하기 위한 NodeGroup이다.
+
+### 배치 대상
+
+- Backend API
+- 인증 / 인가 요청 처리
+- 결제 / 예약 요청 처리
+- 사용자 요청 기반 실시간 API
+- 중단 시 사용자 경험에 직접 영향을 주는 핵심 서비스
+
+### 배치 기준 예시
+
+```yaml
+nodeSelector:
+  workload: core
+  capacity: on-demand
+```
 
 ---
 
-## 👥 Team
+## 3.2 Batch Spot NodeGroup
 
-| Role | Name | GitHub |
+| 항목 | 값 |
+|---|---|
+| NodeGroup | `moment-dev-batch-spot-ng` |
+| capacity type | `SPOT` |
+| label | `workload=batch` |
+| label | `capacity=spot` |
+| desired size | `0` 또는 테스트 시 `1` |
+
+Batch Spot NodeGroup은 중단되어도 재시도 가능한 데이터 처리 작업을 배치하기 위한 NodeGroup이다.
+
+### 배치 대상
+
+- 공공데이터 수집 Batch Job
+- 데이터 정제 작업
+- 실패 후 재시도 가능한 비동기 작업
+- 예약 기반 데이터 적재 작업
+
+### 배치 기준 예시
+
+```yaml
+nodeSelector:
+  workload: batch
+  capacity: spot
+
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "batch"
+    effect: "NoSchedule"
+```
+
+Spot NodeGroup은 비용 절감을 목적으로 사용하며, AWS에 의해 중단될 수 있으므로 Batch Job은 재시도 가능한 구조를 전제로 한다.
+
+---
+
+## 3.3 AI Spot NodeGroup
+
+| 항목 | 값 |
+|---|---|
+| NodeGroup | `moment-dev-ai-spot-ng` |
+| capacity type | `SPOT` |
+| label | `workload=ai` |
+| label | `capacity=spot` |
+| desired size | `0` 또는 테스트 시 `1` |
+
+AI Spot NodeGroup은 AI 관련 비동기 처리 작업을 배치하기 위한 NodeGroup이다.
+
+### 배치 대상
+
+- AI 추천 설명 생성
+- 검색 인덱싱 작업
+- Embedding 생성 작업
+- 비동기 AI 처리 작업
+
+AI 작업은 비용 부담이 커질 수 있으므로 기본적으로 Spot NodeGroup에 배치한다. 단, 사용자 요청과 직접 연결되는 실시간 API 처리는 Core On-Demand NodeGroup에서 처리하고, 무거운 AI 작업은 비동기 처리로 분리한다.
+
+### 배치 기준 예시
+
+```yaml
+nodeSelector:
+  workload: ai
+  capacity: spot
+
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "ai"
+    effect: "NoSchedule"
+```
+
+---
+
+## 3.4 Ops NodeGroup
+
+| 항목 | 값 |
+|---|---|
+| NodeGroup | `moment-dev-ops-on-demand-ng` |
+| capacity type | `ON_DEMAND` |
+| label | `workload=ops` |
+| label | `capacity=on-demand` |
+| desired size | `0` |
+
+Ops NodeGroup은 운영 도구를 서비스 워크로드와 분리 배치하기 위한 NodeGroup이다.
+
+### 배치 대상
+
+- ArgoCD
+- Prometheus
+- Grafana
+- Loki
+- 기타 운영 / 모니터링 도구
+
+운영 도구를 별도 NodeGroup에 배치하면 서비스 워크로드와 운영 워크로드의 영향 범위를 분리할 수 있다.
+
+### 배치 기준 예시
+
+```yaml
+nodeSelector:
+  workload: ops
+
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "ops"
+    effect: "NoSchedule"
+```
+
+---
+
+## 4. Spot NodeGroup 운영 전제
+
+Spot NodeGroup은 비용 절감을 위해 사용하지만, AWS에 의해 언제든 중단될 수 있다.
+
+따라서 Spot NodeGroup에는 다음 조건을 만족하는 워크로드만 배치한다.
+
+- 중단되어도 사용자 요청에 직접적인 장애를 주지 않는 작업
+- 실패 후 재시도 가능한 작업
+- Batch Job 또는 비동기 처리 작업
+- 처리 지연은 허용되지만 비용 최적화가 중요한 작업
+
+반대로 다음 워크로드는 Spot NodeGroup에 배치하지 않는다.
+
+- 사용자 실시간 요청 처리
+- 인증 / 인가 처리
+- 결제 / 예약 처리
+- 핵심 Backend API
+
+---
+
+## 5. 검증 결과
+
+## 5.1 NodeGroup ACTIVE 확인
+
+Terraform apply 결과 Dev EKS NodeGroup이 모두 ACTIVE 상태로 생성되었다.
+
+확인된 NodeGroup은 다음과 같다.
+
+| NodeGroup | 용도 | 상태 |
 |---|---|---|
-| Team Leader | 정아름 | `@armddi` |
-| Team Member | 김민지 | `@cakefeelsgood` |
+| `moment-dev-core-on-demand-ng` | 핵심 서비스 워크로드 | ACTIVE |
+| `moment-dev-batch-spot-ng` | Batch Job 워크로드 | ACTIVE |
+| `moment-dev-ai-spot-ng` | AI 비동기 워크로드 | ACTIVE |
+| `moment-dev-ops-on-demand-ng` | 운영 도구 워크로드 | ACTIVE |
 
 ---
 
-## 📎 Documentation
+## 5.2 Kubernetes Node Label 확인
 
-자세한 설계 문서, 회의록, API 명세, 스프린트 계획은 Wiki에서 관리합니다.
+다음 명령어로 NodeGroup 라벨을 확인했다.
 
-👉 [MoMent Wiki](https://github.com/Team-msp-architect-2026/msp-team04-wiki/wiki)
+```bash
+kubectl get nodes -L workload,capacity
+```
 
----
+확인 결과 Core On-Demand NodeGroup 노드가 Ready 상태로 등록되었고, 다음 라벨이 적용되어 있었다.
 
-## ✅ Current Status
-
-현재 MoMent 인프라는 M2 Infra Bootstrap 단계로,  
-Terraform 기반 Multi-VPC 네트워크와 EKS 중심의 Cloud Native 인프라를 단계적으로 구성하고 있습니다.
-
-최신 개발 작업은 `develop` 브랜치에서 진행 중이며,  
-검증이 완료된 안정 버전만 `main` 브랜치에 반영합니다.
+- `workload=core`
+- `capacity=on-demand`
 
 ---
 
-## 📌 License
+## 5.3 Core Add-on 상태 확인
 
-This project is developed for educational and portfolio purposes as part of the MSP Cloud Architect Bootcamp.
+다음 EKS Add-on이 모두 ACTIVE 상태임을 확인했다.
+
+| Add-on | 상태 |
+|---|---|
+| `vpc-cni` | ACTIVE |
+| `coredns` | ACTIVE |
+| `kube-proxy` | ACTIVE |
+| `aws-ebs-csi-driver` | ACTIVE |
+
+---
+
+## 5.4 Spot NodeGroup 테스트 Pod 배치 확인
+
+Batch Spot NodeGroup의 desired size를 테스트 시점에만 1로 조정한 뒤, 비핵심 테스트 Pod를 배치했다.
+
+테스트 결과 `batch-test` Pod가 다음 노드에 정상 배치되었다.
+
+- Node label: `workload=batch`
+- Node label: `capacity=spot`
+- Pod status: `Running`
+
+검증 후 비용 절감을 위해 Batch Spot NodeGroup의 desired size를 다시 0으로 조정했다.
+
+---
+
+## 5.5 Backend API 테스트 Pod 배치 확인
+
+핵심 Backend API 테스트 Pod를 Core On-Demand NodeGroup에 배치했다.
+
+테스트 Pod 생성 시 다음 nodeSelector를 사용했다.
+
+```yaml
+nodeSelector:
+  workload: core
+  capacity: on-demand
+```
+
+확인 결과 `backend-api-test` Pod가 Core On-Demand 노드에 정상 배치되었다.
+
+- Pod status: `Running`
+- Node label: `workload=core`
+- Node label: `capacity=on-demand`
+
+이를 통해 핵심 서비스 워크로드가 On-Demand NodeGroup에 배치되는 것을 확인했다.
+
+---
+
+## 6. 최종 정리
+
+이번 작업을 통해 Dev EKS 환경에서 Managed NodeGroup을 워크로드 특성별로 분리 구성했다.
+
+- 핵심 Backend API는 On-Demand NodeGroup에 배치
+- Batch / AI 작업은 Spot NodeGroup에 배치 가능하도록 구성
+- Ops 도구는 별도 NodeGroup으로 분리 가능하도록 구성
+- Prod NodeGroup은 기본 비활성화하여 불필요한 비용 발생 방지
+- Add-on 및 NodeGroup ACTIVE 상태 확인
+- 테스트 Pod를 통해 nodeSelector 기반 배치 검증 완료
+## 운영 Runbook
+
+- [M2-VALID-A App / EKS / Ingress / Endpoint / Edge 검증 및 운영 Runbook](docs/M2-VALID-A-Runbook.md)

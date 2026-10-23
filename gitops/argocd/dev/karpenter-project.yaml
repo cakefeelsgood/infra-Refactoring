@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: karpenter-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+  labels:
+    app.kubernetes.io/name: karpenter
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: dev
+spec:
+  description: Karpenter controller, CRDs, EC2NodeClass and NodePools for MoMent Dev EKS
+  sourceRepos:
+    - public.ecr.aws/karpenter
+    - https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
+  clusterResourceWhitelist:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: karpenter.sh
+      kind: NodePool
+    - group: karpenter.k8s.aws
+      kind: EC2NodeClass
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: Service
+    - group: apps
+      kind: Deployment
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding

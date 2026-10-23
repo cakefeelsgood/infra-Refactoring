@@ -1,0 +1,51 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/44')",2,2026-06-12T14:25:21Z,2026-06-12T14:25:23Z
+GET,GET program list urgent,"CatchResponseError('Unexpected status code: 0, path=/programs?status=RECRUITING&filter=urgent')",345,2026-06-12T14:24:15Z,2026-06-12T14:24:35Z
+GET,GET actuator/health,"CatchResponseError('Unexpected status code: 504, path=/actuator/health')",1740,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 504, path=/programs/5')",1345,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET health,"CatchResponseError('Unexpected status code: 504, path=/health')",1686,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/5')",1,2026-06-12T14:25:19Z,2026-06-12T14:25:19Z
+GET,GET program list public,"CatchResponseError('Unexpected status code: 502, path=/programs?status=RECRUITING&filter=public')",9,2026-06-12T14:24:52Z,2026-06-12T14:26:46Z
+GET,GET program list free,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=free')",7,2026-06-12T14:25:19Z,2026-06-12T14:26:22Z
+GET,GET program list,"CatchResponseError('Unexpected status code: 0, path=/programs')",943,2026-06-12T14:24:16Z,2026-06-12T14:24:41Z
+GET,GET health,"CatchResponseError('Unexpected status code: 502, path=/health')",13,2026-06-12T14:24:38Z,2026-06-12T14:26:45Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 0, path=/programs/40')",254,2026-06-12T14:24:15Z,2026-06-12T14:24:35Z
+GET,GET program list online,"CatchResponseError('Unexpected status code: 502, path=/programs?status=RECRUITING&filter=online')",10,2026-06-12T14:24:38Z,2026-06-12T14:26:40Z
+GET,GET actuator/health,"CatchResponseError('Unexpected status code: 502, path=/actuator/health')",8,2026-06-12T14:24:52Z,2026-06-12T14:26:40Z
+GET,GET program list urgent,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=urgent')",2,2026-06-12T14:25:21Z,2026-06-12T14:26:11Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 502, path=/programs/5')",10,2026-06-12T14:24:52Z,2026-06-12T14:26:45Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 0, path=/programs/5')",256,2026-06-12T14:24:16Z,2026-06-12T14:24:35Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 502, path=/programs/40')",6,2026-06-12T14:24:52Z,2026-06-12T14:26:40Z
+GET,GET program list urgent,"CatchResponseError('Unexpected status code: 504, path=/programs?status=RECRUITING&filter=urgent')",1666,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET actuator/health,"CatchResponseError('Unexpected status code: 0, path=/actuator/health')",291,2026-06-12T14:24:15Z,2026-06-12T14:24:41Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 504, path=/programs/36')",1345,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program list free,"CatchResponseError('Unexpected status code: 0, path=/programs?status=RECRUITING&filter=free')",308,2026-06-12T14:24:16Z,2026-06-12T14:24:46Z
+GET,GET program list urgent,"CatchResponseError('Unexpected status code: 502, path=/programs?status=RECRUITING&filter=urgent')",11,2026-06-12T14:24:52Z,2026-06-12T14:26:45Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 504, path=/programs/44')",1316,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 504, path=/programs/40')",1322,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program list online,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=online')",4,2026-06-12T14:25:18Z,2026-06-12T14:26:33Z
+GET,GET home,"CatchResponseError('Unexpected status code: 0, path=/programs/home')",980,2026-06-12T14:24:15Z,2026-06-12T14:24:41Z
+GET,GET program list free,"CatchResponseError('Unexpected status code: 504, path=/programs?status=RECRUITING&filter=free')",1681,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 504, path=/programs/45')",1328,2026-06-12T14:23:04Z,2026-06-12T14:26:54Z
+GET,GET home,"CatchResponseError('Unexpected status code: 502, path=/programs/home')",32,2026-06-12T14:24:38Z,2026-06-12T14:26:45Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/45')",2,2026-06-12T14:25:21Z,2026-06-12T14:25:22Z
+GET,GET home,"CatchResponseError('Unexpected status code: 504, path=/programs/home')",4950,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program list free,"CatchResponseError('Unexpected status code: 502, path=/programs?status=RECRUITING&filter=free')",9,2026-06-12T14:24:38Z,2026-06-12T14:25:13Z
+GET,GET program list,"CatchResponseError('Unexpected status code: 502, path=/programs')",36,2026-06-12T14:24:38Z,2026-06-12T14:26:46Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 0, path=/programs/45')",235,2026-06-12T14:24:16Z,2026-06-12T14:24:35Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 502, path=/programs/36')",9,2026-06-12T14:24:52Z,2026-06-12T14:26:45Z
+GET,GET program list public,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=public')",6,2026-06-12T14:25:18Z,2026-06-12T14:25:24Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 0, path=/programs/36')",242,2026-06-12T14:24:16Z,2026-06-12T14:24:35Z
+GET,GET program list public,"CatchResponseError('Unexpected status code: 504, path=/programs?status=RECRUITING&filter=public')",1760,2026-06-12T14:23:04Z,2026-06-12T14:26:54Z
+GET,GET program list,"CatchResponseError('Unexpected status code: 504, path=/programs')",5047,2026-06-12T14:23:03Z,2026-06-12T14:26:54Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 0, path=/programs/44')",267,2026-06-12T14:24:16Z,2026-06-12T14:24:35Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/40')",1,2026-06-12T14:25:19Z,2026-06-12T14:25:19Z
+GET,GET program list online,"CatchResponseError('Unexpected status code: 0, path=/programs?status=RECRUITING&filter=online')",295,2026-06-12T14:24:16Z,2026-06-12T14:24:35Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/36')",5,2026-06-12T14:25:19Z,2026-06-12T14:25:24Z
+GET,GET program list public,"CatchResponseError('Unexpected status code: 0, path=/programs?status=RECRUITING&filter=public')",327,2026-06-12T14:24:16Z,2026-06-12T14:24:41Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 502, path=/programs/44')",7,2026-06-12T14:24:52Z,2026-06-12T14:25:00Z
+GET,GET program list,"CatchResponseError('Unexpected status code: 500, path=/programs')",6,2026-06-12T14:25:19Z,2026-06-12T14:26:33Z
+GET,GET health,"CatchResponseError('Unexpected status code: 0, path=/health')",326,2026-06-12T14:24:16Z,2026-06-12T14:24:41Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 502, path=/programs/45')",6,2026-06-12T14:24:52Z,2026-06-12T14:25:00Z
+GET,GET program list online,"CatchResponseError('Unexpected status code: 504, path=/programs?status=RECRUITING&filter=online')",1606,2026-06-12T14:23:04Z,2026-06-12T14:26:54Z
+GET,GET actuator/health,"CatchResponseError('Unexpected status code: 503, path=/actuator/health')",3,2026-06-12T14:25:29Z,2026-06-12T14:25:29Z

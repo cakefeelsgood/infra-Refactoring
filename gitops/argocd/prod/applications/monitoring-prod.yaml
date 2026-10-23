@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app.kubernetes.io/name: monitoring
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: prod
+spec:
+  project: monitoring-prod
+  sources:
+    - repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+      targetRevision: develop
+      ref: values
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: "61.3.0"
+      helm:
+        valueFiles:
+          - $values/gitops/values/prod/monitoring-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

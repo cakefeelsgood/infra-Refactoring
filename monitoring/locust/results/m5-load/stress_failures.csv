@@ -1,0 +1,7 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/44')",2,2026-06-12T13:03:53Z,2026-06-12T13:03:54Z
+GET,GET program list urgent,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=urgent')",1,2026-06-12T13:03:54Z,2026-06-12T13:03:54Z
+GET,GET program list public,"CatchResponseError('Unexpected status code: 500, path=/programs?status=RECRUITING&filter=public')",1,2026-06-12T13:03:44Z,2026-06-12T13:03:44Z
+GET,GET program detail,"CatchResponseError('Unexpected status code: 500, path=/programs/36')",1,2026-06-12T12:59:54Z,2026-06-12T12:59:54Z
+GET,GET program list,"CatchResponseError('Unexpected status code: 500, path=/programs')",5,2026-06-12T12:59:57Z,2026-06-12T13:03:50Z
+GET,GET actuator/health,"CatchResponseError('Unexpected status code: 503, path=/actuator/health')",3,2026-06-12T13:02:51Z,2026-06-12T13:03:48Z

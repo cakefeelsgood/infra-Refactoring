@@ -1,0 +1,99 @@
+# phase5 rendered scheduling fields (helm template with env values)
+
+## backend-api / prod
+PDB/backend-api-pdb minAvailable="50%"
+Deployment/backend-api
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector={"karpenter.sh/capacity-type"=>"on-demand"}
+  tolerations=["capacity=on-demand:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/DoNotSchedule/matchLabelKeys=[\"pod-template-hash\"]"]
+Ingress/backend-api target-group-attributes="deregistration_delay.timeout_seconds=30"
+
+## ai-service / prod
+PDB/ai-service-pdb minAvailable="50%"
+Deployment/ai-service
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector={"karpenter.sh/capacity-type"=>"spot"}
+  tolerations=["capacity=spot:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/DoNotSchedule/matchLabelKeys=[\"pod-template-hash\"]"]
+
+## batch-job / prod
+Deployment/batch-job
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop=nil
+  nodeSelector={"karpenter.sh/capacity-type"=>"on-demand"}
+  tolerations=["capacity=on-demand:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=none
+  topologySpread=[]
+
+## backend-api / prod with --set capacitySplit.enabled=true (gate on)
+PDB/backend-api-pdb minAvailable="50%"
+Deployment/backend-api
+  labels.capacity-split="true"
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector=nil
+  tolerations=["capacity=spot:NoSchedule"]
+  nodeAffinity={"requiredDuringSchedulingIgnoredDuringExecution"=>{"nodeSelectorTerms"=>[{"matchExpressions"=>[{"key"=>"karpenter.sh/capacity-type", "operator"=>"In", "values"=>["on-demand", "spot"]}]}]}}
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/DoNotSchedule/matchLabelKeys=[\"pod-template-hash\"]"]
+Ingress/backend-api target-group-attributes="deregistration_delay.timeout_seconds=30"
+
+## backend-api / dev
+Deployment/backend-api
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector={"karpenter.sh/capacity-type"=>"on-demand"}
+  tolerations=["capacity=on-demand:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/ScheduleAnyway/matchLabelKeys=[\"pod-template-hash\"]"]
+Ingress/backend-api target-group-attributes="deregistration_delay.timeout_seconds=30"
+
+## ai-service / dev
+Deployment/ai-service
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector={"karpenter.sh/capacity-type"=>"on-demand"}
+  tolerations=["capacity=on-demand:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/ScheduleAnyway/matchLabelKeys=[\"pod-template-hash\"]"]
+
+## batch-job / dev
+Deployment/batch-job
+  labels.capacity-split=nil
+  terminationGracePeriodSeconds=60
+  preStop=nil
+  nodeSelector={"karpenter.sh/capacity-type"=>"spot"}
+  tolerations=["capacity=spot:NoSchedule"]
+  nodeAffinity=nil
+  podAntiAffinity=none
+  topologySpread=[]
+
+## backend-api / dev with --set capacitySplit.enabled=true (gate on)
+Deployment/backend-api
+  labels.capacity-split="true"
+  terminationGracePeriodSeconds=60
+  preStop={"sleep"=>{"seconds"=>20}}
+  nodeSelector=nil
+  tolerations=["capacity=spot:NoSchedule"]
+  nodeAffinity={"requiredDuringSchedulingIgnoredDuringExecution"=>{"nodeSelectorTerms"=>[{"matchExpressions"=>[{"key"=>"karpenter.sh/capacity-type", "operator"=>"In", "values"=>["on-demand", "spot"]}]}]}}
+  podAntiAffinity=present
+  topologySpread=["topology.kubernetes.io/zone/ScheduleAnyway/matchLabelKeys=[\"pod-template-hash\"]"]
+Ingress/backend-api target-group-attributes="deregistration_delay.timeout_seconds=30"
+
+## batch-job / prod with --set pdb.enabled=true (new pdb.yaml template)
+PDB/batch-job-pdb minAvailable=1

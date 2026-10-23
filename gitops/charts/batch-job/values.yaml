@@ -1,0 +1,56 @@
+namespace: "moment"
+
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+mode: cronjob
+schedule: "0 * * * *"
+suspend: false
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+# CrashLoopBackOff 대응: 재시도 3회, 실패 시 기록 보존
+backoffLimit: 3
+restartPolicy: OnFailure
+
+args: []
+config: {}
+secretRefs: []
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+# Karpenter on-demand-base NodePool에 배치
+nodeSelector:
+  karpenter.sh/capacity-type: on-demand
+
+tolerations:
+  - key: "capacity"
+    operator: "Equal"
+    value: "on-demand"
+    effect: "NoSchedule"
+affinity: {}
+
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+topologySpreadConstraints: []
+
+# PodDisruptionBudget (worker 모드)
+pdb:
+  enabled: false
+  minAvailable: 1

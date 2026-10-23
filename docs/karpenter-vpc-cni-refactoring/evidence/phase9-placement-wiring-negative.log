@@ -1,0 +1,31 @@
+# phase9 negative tests: placement and wiring checks
+## actual repository (expect exit=0)
+placement exit=0
+wiring exit=0
+
+## P1: on-demand-base NodePool without taint (experiment trap 4: burst pods fill free OD space) (expect exit=1)
+FAIL [prod] backend-api, capacitySplit on, webhook burst pod           -> karpenter:on-demand-base, karpenter:spot-burst   expected: karpenter:spot-burst
+FAIL [prod] backend-api, capacitySplit on, webhook down (fail-open)    -> karpenter:on-demand-base, karpenter:spot-burst   expected: karpenter:spot-burst
+RESULT: FAIL
+exit=1
+
+## P2: capacitySplit without Karpenter-only node affinity (burst pods can land on untainted core MNG) (expect exit=1)
+FAIL [prod] backend-api, capacitySplit on, webhook burst pod           -> mng:core_on_demand, karpenter:spot-burst   expected: karpenter:spot-burst
+FAIL [prod] backend-api, capacitySplit on, webhook down (fail-open)    -> mng:core_on_demand, karpenter:spot-burst   expected: karpenter:spot-burst
+RESULT: FAIL
+exit=1
+
+## P3: ai-service without karpenter.sh/capacity-type nodeSelector (expect exit=1)
+FAIL [prod] ai-service                                                 -> mng:core_on_demand, karpenter:spot-burst   expected: karpenter:spot-burst
+RESULT: FAIL
+exit=1
+
+## W1: EC2NodeClass role name typo (expect exit=1)
+FAIL [prod] EC2NodeClass spec.role                               expected "moment-prod-karpenter-node-role", got "moment-prod-karpenter-node"
+RESULT: FAIL
+exit=1
+
+## W2: interruption queue name typo (expect exit=1)
+FAIL [prod] Karpenter settings.interruptionQueue                 expected "moment-prod-karpenter-interruption", got "moment-prod-karpenter"
+RESULT: FAIL
+exit=1

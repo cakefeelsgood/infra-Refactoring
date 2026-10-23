@@ -1,0 +1,101 @@
+mode: worker
+replicaCount: 1
+namespace: moment-dev
+image:
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-dev-batch-job
+  tag: dev-6e1bc50
+  pullPolicy: IfNotPresent
+serviceAccount:
+  create: true
+  name: moment-dev-batch-job-sa
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-dev-batch-job-irsa-role"
+schedule: "0 * * * *"
+suspend: true
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 1
+backoffLimit: 3
+restartPolicy: OnFailure
+args:
+  - "--spring.profiles.active=dev,batch"
+  - "--spring.main.web-application-type=none"
+  - "--spring.batch.job.enabled=false"
+config:
+  SPRING_PROFILES_ACTIVE: dev,batch
+  RUNTIME_PROFILE: dev
+  AWS_REGION: ap-northeast-3
+  SPRING_BATCH_JOB_ENABLED: "false"
+  BATCH_SQS_CONSUMER_ENABLED: "true"
+  BATCH_JOB_NAME: public-data-collector
+  TRIGGER_TYPE: cron
+  UPDATE_FREQUENCY: hourly
+  SCHEDULE_CRON: "0 * * * *"
+  SQS_QUEUE_NAME: moment-dev-public-data-queue
+  SQS_QUEUE_URL: https://sqs.ap-northeast-3.amazonaws.com/611058323802/moment-dev-public-data-queue
+  S3_RAW_BUCKET: moment-dev-raw-data-611058323802-ap-northeast-3
+  DB_HOST: moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com
+  DB_PORT: "5432"
+  DB_NAME: moment
+  DB_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  SPRING_FLYWAY_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  OPENSEARCH_PORT: "443"
+  OPENSEARCH_SCHEME: https
+  OPENSEARCH_HOST: vpc-moment-dev-opensearch-hdseoos3ibawg6xwwlaa4hff3u.ap-northeast-3.es.amazonaws.com
+secretRefs:
+  - envName: DB_USERNAME
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-username
+  - envName: DB_PASSWORD
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-password
+  - envName: SPRING_DATASOURCE_USERNAME
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-username
+  - envName: SPRING_DATASOURCE_PASSWORD
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-password
+  - envName: SPRING_FLYWAY_USER
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-username
+  - envName: SPRING_FLYWAY_PASSWORD
+    secretName: moment-dev-batch-job-secret
+    secretKey: db-password
+  - envName: PUBLIC_DATA_API_KEY
+    secretName: moment-dev-batch-job-secret
+    secretKey: public-data-api-key
+  - envName: PUBLIC_DATA_DATA_GO_KR_SERVICE_KEY
+    secretName: moment-dev-batch-job-secret
+    secretKey: public-data-api-key
+  - envName: JWT_SECRET_KEY
+    secretName: moment-dev-batch-job-secret
+    secretKey: jwt-secret
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+# HA: RollingUpdate - SQS worker, 중단 시 메시지 재처리 가능
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+# HA: PDB - dev replica 1, 비활성
+pdb:
+  enabled: false
+  minAvailable: 1
+# SQS worker: 처리 중인 메시지를 마칠 시간 (트래픽을 받지 않으므로 preStop 없음)
+terminationGracePeriodSeconds: 60
+# Karpenter spot-burst NodePool (기존 batch Spot 배치 유지)
+nodeSelector:
+  karpenter.sh/capacity-type: spot
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: spot
+    effect: NoSchedule
+affinity: {}

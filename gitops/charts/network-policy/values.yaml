@@ -1,0 +1,9 @@
+dataTierCidrs: []
+
+dataTierEgress:
+  enabled: false
+  workloads: []
+
+serviceEgress:
+  enabled: false
+  rules: []

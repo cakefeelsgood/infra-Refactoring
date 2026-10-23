@@ -1,0 +1,56 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: moment-prod-slack-alerts
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: moment-alertmanager-config
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: prod
+spec:
+  route:
+    groupBy:
+      - alertname
+      - environment
+      - service
+      - severity
+      - category
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    receiver: moment-prod-slack
+    matchers:
+      - name: environment
+        value: prod
+        matchType: =
+  receivers:
+    - name: moment-prod-slack
+      slackConfigs:
+        - apiURL:
+            name: moment-prod-slack-alert-webhook
+            key: url
+          channel: "#moment-alerts"
+          sendResolved: true
+          title: '[{{ if eq .Status "resolved" }}RESOLVED{{ else }}{{ .CommonLabels.severity | toUpper }}{{ end }}] [prod] {{ .CommonLabels.alertname }}'
+          text: |-
+            {{ range .Alerts }}
+            *알람명:* {{ .Labels.alertname }}
+            *설명:* {{ .Annotations.description }}
+            *심각도:* {{ .Labels.severity | toUpper }}
+            *환경:* {{ .Labels.environment }}
+            *서비스:* {{ .Labels.service }}
+            *영역:* {{ .Labels.category }}
+            *사유:* {{ .Annotations.reason }}
+            *현재값:* Prometheus expression matched
+            *기준값:* {{ .Annotations.threshold_text }}
+            *담당자:* {{ .Labels.owner }}
+            *조치:* {{ .Annotations.action_hint }}
+            *Runbook:* {{ .Annotations.runbook_url }}
+            *StartedAt:* {{ .StartsAt }}
+            {{ if eq .Status "resolved" }}*ResolvedAt:* {{ .EndsAt }}{{ end }}
+            *Source:* prometheus
+            ---
+            {{ end }}

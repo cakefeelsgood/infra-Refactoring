@@ -1,0 +1,36 @@
+# phase9 static placement check (scripts/validation/check-capacity-placement.rb, 2026-10-23T08:50:29Z)
+## dev nodes
+     mng:core_on_demand: labels={"workload"=>"core", "capacity"=>"on-demand", "eks.amazonaws.com/capacityType"=>"ON_DEMAND"} taints=[]
+     mng:ops_on_demand: labels={"workload"=>"ops", "capacity"=>"on-demand", "eks.amazonaws.com/capacityType"=>"ON_DEMAND"} taints=["workload=ops:NoSchedule"]
+     mng:batch_spot: labels={"workload"=>"batch", "capacity"=>"spot", "eks.amazonaws.com/capacityType"=>"SPOT"} taints=["workload=batch:NoSchedule", "capacity=spot:NoSchedule"]
+     mng:ai_spot: labels={"workload"=>"ai", "capacity"=>"spot", "eks.amazonaws.com/capacityType"=>"SPOT"} taints=["workload=ai:NoSchedule", "capacity=spot:NoSchedule"]
+     karpenter:on-demand-base: labels={"capacity"=>"on-demand", "karpenter.sh/nodepool"=>"on-demand-base", "karpenter.sh/capacity-type"=>"on-demand"} taints=["capacity=on-demand:NoSchedule"]
+     karpenter:spot-burst: labels={"capacity"=>"spot", "karpenter.sh/nodepool"=>"spot-burst", "karpenter.sh/capacity-type"=>"spot"} taints=["capacity=spot:NoSchedule"]
+## dev placement
+OK   [dev] backend-api, capacitySplit off (all base)                  -> karpenter:on-demand-base
+OK   [dev] backend-api, capacitySplit on, webhook base pod            -> karpenter:on-demand-base
+OK   [dev] backend-api, capacitySplit on, webhook burst pod           -> karpenter:spot-burst
+OK   [dev] backend-api, capacitySplit on, webhook down (fail-open)    -> karpenter:spot-burst
+OK   [dev] ai-service                                                 -> karpenter:on-demand-base
+OK   [dev] batch-job                                                  -> karpenter:spot-burst
+OK   [dev] capacity-split-webhook controller                          -> mng:ops_on_demand
+OK   [dev] no workload depends on legacy batch/ai node groups (mng:batch_spot, mng:ai_spot)
+## prod nodes
+     mng:core_on_demand: labels={"workload"=>"core", "capacity"=>"on-demand", "eks.amazonaws.com/capacityType"=>"ON_DEMAND"} taints=[]
+     mng:ops_on_demand: labels={"workload"=>"ops", "capacity"=>"on-demand", "eks.amazonaws.com/capacityType"=>"ON_DEMAND"} taints=["workload=ops:NoSchedule"]
+     mng:batch_on_demand: labels={"workload"=>"batch", "capacity"=>"on-demand", "eks.amazonaws.com/capacityType"=>"ON_DEMAND"} taints=["workload=batch:NoSchedule"]
+     mng:batch_spot: labels={"workload"=>"batch", "capacity"=>"spot", "eks.amazonaws.com/capacityType"=>"SPOT"} taints=["workload=batch:NoSchedule", "capacity=spot:NoSchedule"]
+     mng:ai_spot: labels={"workload"=>"ai", "capacity"=>"spot", "eks.amazonaws.com/capacityType"=>"SPOT"} taints=["workload=ai:NoSchedule", "capacity=spot:NoSchedule"]
+     karpenter:on-demand-base: labels={"capacity"=>"on-demand", "karpenter.sh/nodepool"=>"on-demand-base", "karpenter.sh/capacity-type"=>"on-demand"} taints=["capacity=on-demand:NoSchedule"]
+     karpenter:spot-burst: labels={"capacity"=>"spot", "karpenter.sh/nodepool"=>"spot-burst", "karpenter.sh/capacity-type"=>"spot"} taints=["capacity=spot:NoSchedule"]
+## prod placement
+OK   [prod] backend-api, capacitySplit off (all base)                  -> karpenter:on-demand-base
+OK   [prod] backend-api, capacitySplit on, webhook base pod            -> karpenter:on-demand-base
+OK   [prod] backend-api, capacitySplit on, webhook burst pod           -> karpenter:spot-burst
+OK   [prod] backend-api, capacitySplit on, webhook down (fail-open)    -> karpenter:spot-burst
+OK   [prod] ai-service                                                 -> karpenter:spot-burst
+OK   [prod] batch-job                                                  -> karpenter:on-demand-base
+OK   [prod] capacity-split-webhook controller                          -> mng:ops_on_demand
+OK   [prod] no workload depends on legacy batch/ai node groups (mng:batch_on_demand, mng:batch_spot, mng:ai_spot)
+RESULT: PASS
+exit=0

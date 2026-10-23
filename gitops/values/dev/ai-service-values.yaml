@@ -1,0 +1,104 @@
+namespace: moment-dev
+replicaCount: 1
+image:
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-dev-ai-service
+  tag: dev-ab565c5
+  pullPolicy: IfNotPresent
+serviceAccount:
+  create: true
+  name: moment-dev-ai-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-dev-ai-service-irsa-role"
+config:
+  ENVIRONMENT: dev
+  RUNTIME_PROFILE: dev
+  SERVER_PORT: "8000"
+  AWS_REGION: ap-northeast-3
+  LOG_LEVEL: DEBUG
+  OPENAI_MODEL: gpt-4o-mini
+  OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  OPENAI_TIMEOUT_SECONDS: "15"
+  OPENSEARCH_HOST: vpc-moment-dev-opensearch-hdseoos3ibawg6xwwlaa4hff3u.ap-northeast-3.es.amazonaws.com
+  BACKEND_API_URL: "http://backend-api:8080"
+secretRefs:
+  - envName: OPENAI_API_KEY
+    secretName: moment-dev-ai-service-secret
+    secretKey: openai-api-key
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 6
+  successThreshold: 1
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 40
+  periodSeconds: 15
+  timeoutSeconds: 2
+  failureThreshold: 5
+  successThreshold: 1
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+# HA: RollingUpdate - dev replica 1, maxUnavailable 1 허용
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+# HA: PDB - dev replica 1이라 비활성
+pdb:
+  enabled: false
+  minAvailable: 1
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+# Karpenter on-demand-base NodePool (기존 core On-Demand 배치 유지)
+nodeSelector:
+  karpenter.sh/capacity-type: on-demand
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: on-demand
+    effect: NoSchedule
+# AZ 분산: dev는 비용 우선이라 soft
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ai-service
+        app.kubernetes.io/instance: ai-service-dev
+    matchLabelKeys:
+      - pod-template-hash
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ai-service
+              app.kubernetes.io/instance: ai-service-dev
+          topologyKey: kubernetes.io/hostname
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ai-service
+              app.kubernetes.io/instance: ai-service-dev
+          topologyKey: topology.kubernetes.io/zone

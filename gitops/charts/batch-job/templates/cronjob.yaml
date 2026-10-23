@@ -1,0 +1,64 @@
+{{- if eq (.Values.mode | default "cronjob") "cronjob" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "batch-job.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "batch-job.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  suspend: {{ .Values.suspend | default false }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "batch-job.labels" . | nindent 12 }}
+        spec:
+          restartPolicy: {{ .Values.restartPolicy }}
+          serviceAccountName: {{ .Values.serviceAccount.name | default (include "batch-job.fullname" .) }}
+          containers:
+            - name: batch-job
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              {{- with .Values.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- if .Values.config }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "batch-job.fullname" . }}-config
+              {{- end }}
+              {{- if .Values.secretRefs }}
+              env:
+                {{- range .Values.secretRefs }}
+                - name: {{ .envName }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .secretName }}
+                      key: {{ .secretKey }}
+                {{- end }}
+              {{- end }}
+              {{- with .Values.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

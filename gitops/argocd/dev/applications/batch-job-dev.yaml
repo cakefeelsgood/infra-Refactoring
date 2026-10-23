@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: batch-job-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: batch-job
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: dev
+spec:
+  project: moment-dev
+  source:
+    repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+    targetRevision: develop
+    path: gitops/charts/batch-job
+    helm:
+      valueFiles:
+        - ../../values/dev/batch-job-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: moment-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

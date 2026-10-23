@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capacity-split-webhook-dev
+  namespace: argocd
+  annotations:
+    # Before the service apps (wave 1) so opted-in pods are admitted by a running webhook.
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: capacity-split-webhook
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: dev
+spec:
+  project: capacity-split-webhook-dev
+  source:
+    repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+    targetRevision: develop
+    path: gitops/charts/capacity-split-webhook
+    helm:
+      valueFiles:
+        - ../../values/dev/capacity-split-webhook-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: capacity-split-system
+  # The certgen PostSync job writes caBundle.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: capacity-split-webhook
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+  syncPolicy:
+    # Same as the other dev apps: the dev service apps auto-sync onto Karpenter nodes, so Karpenter must too.
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true

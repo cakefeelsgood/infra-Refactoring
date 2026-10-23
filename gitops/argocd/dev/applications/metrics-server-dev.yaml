@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: metrics-server
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: dev
+spec:
+  project: metrics-server-dev
+  source:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server/
+    chart: metrics-server
+    targetRevision: 3.13.0
+    helm:
+      releaseName: metrics-server
+      values: |
+        replicas: 1
+
+        podDisruptionBudget:
+          enabled: true
+          minAvailable: 1
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+
+        nodeSelector:
+          workload: ops
+          capacity: on-demand
+
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: ops
+            effect: NoSchedule
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

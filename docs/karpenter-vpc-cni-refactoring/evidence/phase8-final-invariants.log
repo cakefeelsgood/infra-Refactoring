@@ -1,0 +1,58 @@
+# phase8 final invariant / hygiene checks, after review fixes (2026-10-23T07:48:39Z)
+
+## invariant 1 + 2: scripts/validation/check-pd-maxpods.sh
+OK   [dev] every managed node group sets max_pods
+OK   [dev] every EC2NodeClass sets kubelet.maxPods
+OK   [dev] all maxPods values equal 40
+OK   [prod] every managed node group sets max_pods
+OK   [prod] every EC2NodeClass sets kubelet.maxPods
+OK   [prod] all maxPods values equal 40
+OK   [all] modules/eks-nodegroup renders max_pods into the launch template NodeConfig
+OK   [all] MNG node role (modules/iam aws_iam_role.eks_node) has AmazonEKS_CNI_Policy
+OK   [dev] managed node groups use module.dev_iam eks_node_role_arn
+OK   [prod] managed node groups use module.prod_iam eks_node_role_arn
+OK   [all] Karpenter node role has AmazonEKS_CNI_Policy (modules/karpenter)
+RESULT: PASS
+
+## invariant 2: modules/eks passthrough
+terraform/modules/eks/main.tf:224:  # Previously missing: callers' configuration_values (vpc-cni enableNetworkPolicy, Prefix Delegation)
+terraform/modules/eks/main.tf:226:  configuration_values = each.value.configuration_values
+terraform/modules/eks/main.tf:228:  # Keep passing service_account_role_arn on every update. An OVERWRITE update without it
+terraform/modules/eks/main.tf:230:  service_account_role_arn = try(each.value.service_account_role_arn, null) != null ? each.value.service_account_role_arn : (
+terraform/modules/eks/variables.tf:118:    configuration_values        = optional(string)
+terraform/modules/eks/variables.tf:119:    service_account_role_arn    = optional(string)
+
+## invariant 3: OD taint / tolerations / pod-deletion-cost
+gitops/apps/prod/karpenter/nodepools.yaml:6:  name: on-demand-base
+gitops/apps/prod/karpenter/nodepools.yaml:20:          value: on-demand
+gitops/apps/prod/karpenter/nodepools.yaml:49:  name: spot-burst
+gitops/apps/prod/karpenter/nodepools.yaml:63:          value: spot
+gitops/apps/dev/karpenter/nodepools.yaml:6:  name: on-demand-base
+gitops/apps/dev/karpenter/nodepools.yaml:20:          value: on-demand
+gitops/apps/dev/karpenter/nodepools.yaml:49:  name: spot-burst
+gitops/apps/dev/karpenter/nodepools.yaml:63:          value: spot
+  prod/backend-api tolerations=[on-demand]
+  prod/ai-service tolerations=[spot]
+  prod/batch-job tolerations=[on-demand]
+  prod/backend-api (capacitySplit on) template tolerations=[spot]; base pods get on-demand from the webhook
+  dev/backend-api tolerations=[on-demand]
+  dev/ai-service tolerations=[on-demand]
+  dev/batch-job tolerations=[spot]
+  dev/backend-api (capacitySplit on) template tolerations=[spot]; base pods get on-demand from the webhook
+53:	cost := "-1000"
+55:		cost = "1000"
+115:		tolValue = "on-demand"
+  (all-on-demand workloads tolerate the OD taint by design: they are entirely base capacity; burst/spot pods never do)
+
+## added lines: subnet/SG IDs, secrets (expect none)
+none
+## added lines: account ID (allowed: deterministic IRSA ARN / ECR, CLAUDE.md exception)
+            eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-dev-karpenter-controller-irsa-role"
+            eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-prod-karpenter-controller-irsa-role"
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-dev-capacity-split-webhook
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-prod-capacity-split-webhook
+## added lines: TODO/FIXME/skip (expect none)
+none
+
+## no deploy / no commit
+branch feat/karpenter-spot-vpc-cni, HEAD a2e4de6 (= develop a2e4de6), commits on branch: 0

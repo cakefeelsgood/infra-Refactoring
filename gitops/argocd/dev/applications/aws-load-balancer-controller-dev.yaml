@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+    app.kubernetes.io/part-of: moment
+    app.kubernetes.io/managed-by: argocd
+    environment: dev
+spec:
+  project: aws-load-balancer-controller-dev
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 3.4.0
+    helm:
+      releaseName: aws-load-balancer-controller
+      values: |
+        clusterName: moment-dev-eks-cluster
+        region: ap-northeast-3
+        vpcId: vpc-0e2f95e8df4caaefc
+
+        replicaCount: 1
+
+        serviceAccount:
+          create: true
+          name: aws-load-balancer-controller
+          annotations:
+            eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-dev-alb-controller-irsa-role"
+
+        nodeSelector:
+          workload: ops
+          capacity: on-demand
+
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: ops
+            effect: NoSchedule
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true

@@ -1,0 +1,147 @@
+{{- if .Values.image.tag }}
+{{- /*
+  Self-signed serving certificate without cert-manager (none in this cluster):
+  PreSync job creates the Secret once (skips if it exists), PostSync job writes its CA into
+  the MutatingWebhookConfiguration caBundle. Same pattern as the ingress-nginx chart.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.name }}-certgen
+  namespace: {{ .Values.namespace }}
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" "PreSync" | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.name }}-certgen
+  namespace: {{ .Values.namespace }}
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" "PreSync" | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.name }}-certgen
+  namespace: {{ .Values.namespace }}
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" "PreSync" | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.name }}-certgen
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.name }}-certgen
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.name }}-certgen
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" "PreSync" | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations"]
+    resourceNames: [{{ .Values.name | quote }}]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.name }}-certgen
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" "PreSync" | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.name }}-certgen
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.name }}-certgen
+    namespace: {{ .Values.namespace }}
+{{- range $phase := list "PreSync" "PostSync" }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $.Values.name }}-certgen-{{ ternary "create" "patch" (eq $phase "PreSync") }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    {{- include "capacity-split-webhook.certgenHook" $phase | nindent 4 }}
+  labels:
+    {{- include "capacity-split-webhook.labels" $ | nindent 4 }}
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "capacity-split-webhook.labels" $ | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Values.name }}-certgen
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: certgen
+          image: "{{ $.Values.certgen.image.repository }}:{{ $.Values.certgen.image.tag }}"
+          args:
+            {{- if eq $phase "PreSync" }}
+            - create
+            - --host={{ $.Values.name }},{{ $.Values.name }}.{{ $.Values.namespace }}.svc
+            - --namespace={{ $.Values.namespace }}
+            - --secret-name={{ $.Values.certgen.secretName }}
+            {{- else }}
+            - patch
+            - --webhook-name={{ $.Values.name }}
+            - --namespace={{ $.Values.namespace }}
+            - --secret-name={{ $.Values.certgen.secretName }}
+            - --patch-mutating=true
+            - --patch-validating=false
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+{{- end }}
+{{- end }}

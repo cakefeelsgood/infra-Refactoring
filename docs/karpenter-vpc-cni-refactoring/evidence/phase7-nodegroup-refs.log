@@ -1,0 +1,17 @@
+# phase7 node groups after review fix (legacy batch/ai moved to a gated module, regenerated 2026-10-23T07:48:26Z)
+[dev] module.dev_eks_nodegroups: core_on_demand ops_on_demand 
+    count = var.enable_dev_vpc && var.enable_dev_iam && var.enable_dev_eks && var.enable_dev_nodegroups ? 1 : 0
+[dev] module.dev_eks_legacy_nodegroups: batch_spot ai_spot 
+    count = var.enable_dev_vpc && var.enable_dev_iam && var.enable_dev_eks && var.enable_dev_nodegroups && var.enable_dev_legacy_workload_nodegroups ? 1 : 0
+[dev] moved blocks: 4
+  default     = true
+[prod] module.prod_eks_nodegroups: core_on_demand ops_on_demand 
+    count = var.enable_prod_iam && var.enable_prod_eks && var.enable_prod_nodegroups ? 1 : 0
+[prod] module.prod_eks_legacy_nodegroups: batch_on_demand batch_spot ai_spot 
+    count = var.enable_prod_iam && var.enable_prod_eks && var.enable_prod_nodegroups && var.enable_prod_legacy_workload_nodegroups ? 1 : 0
+[prod] moved blocks: 6
+  default     = true
+## gitops/monitoring references to workload=ai|batch - expect none
+none
+## removed-from-core module node group names outside terraform env/moved files - expect none
+none

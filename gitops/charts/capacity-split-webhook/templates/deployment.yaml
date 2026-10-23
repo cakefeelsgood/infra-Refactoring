@@ -1,0 +1,92 @@
+{{- if .Values.image.tag }}
+# Single replica + Recreate on purpose: decisions rely on in-memory per-ReplicaSet state,
+# so two live replicas would break the base count (DESIGN.md, SPOF note).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "capacity-split-webhook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "capacity-split-webhook.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.name }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: webhook
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ENABLE_TOPOLOGY_SPREAD
+              value: {{ .Values.topologySpread | quote }}
+            - name: FAIL_OPEN
+              value: {{ .Values.failOpen | quote }}
+          ports:
+            - name: https
+              containerPort: 9443
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+            periodSeconds: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: certs
+          secret:
+            secretName: {{ .Values.certgen.secretName }}
+            # kube-webhook-certgen writes "cert"/"key"; the webhook reads /certs/tls.crt and /certs/tls.key.
+            items:
+              - key: cert
+                path: tls.crt
+              - key: key
+                path: tls.key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "capacity-split-webhook.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+{{- end }}

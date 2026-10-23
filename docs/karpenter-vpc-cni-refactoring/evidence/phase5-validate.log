@@ -1,0 +1,74 @@
+# phase5 static validation (2026-10-23T07:32:32Z, branch feat/karpenter-spot-vpc-cni)
+## terraform fmt -check -recursive terraform
+exit=0
+## terraform validate (dev)
+Success! The configuration is valid.
+
+exit=0
+## terraform validate (prod)
+Success! The configuration is valid.
+
+exit=0
+## helm lint/template ai-service (dev)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template ai-service (prod)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template backend-api (dev)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template backend-api (prod)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template batch-job (dev)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template batch-job (prod)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template external-dns (prod)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template network-policy (dev)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## helm lint/template network-policy (prod)
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+## scripts/validation/check-pd-maxpods.sh
+INFO [dev] ENABLE_PREFIX_DELEGATION=true (vpc-cni add-on)
+INFO [dev] managed node groups=4 with max_pods=4 values=[40 40 40 40]
+INFO [dev] EC2NodeClasses=1 with kubelet.maxPods=1 values=[40]
+OK   [dev] every managed node group sets max_pods
+OK   [dev] every EC2NodeClass sets kubelet.maxPods
+OK   [dev] all maxPods values equal 40
+INFO [prod] ENABLE_PREFIX_DELEGATION=true (vpc-cni add-on)
+INFO [prod] managed node groups=5 with max_pods=5 values=[40 40 40 40 40]
+INFO [prod] EC2NodeClasses=1 with kubelet.maxPods=1 values=[40]
+OK   [prod] every managed node group sets max_pods
+OK   [prod] every EC2NodeClass sets kubelet.maxPods
+OK   [prod] all maxPods values equal 40
+OK   [all] managed node group role has AmazonEKS_CNI_Policy (modules/iam)
+OK   [all] Karpenter node role has AmazonEKS_CNI_Policy (modules/karpenter)
+RESULT: PASS
+exit=0
+## RESULT: PASS

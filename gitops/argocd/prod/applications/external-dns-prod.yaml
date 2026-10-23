@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns-prod
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/part-of: moment
+    environment: prod
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: external-dns
+  source:
+    repoURL: https://github.com/Team-msp-architect-2026/msp-team04-infra.git
+    targetRevision: develop
+    path: gitops/charts/external-dns
+    helm:
+      valueFiles:
+        - ../../values/prod/external-dns-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true

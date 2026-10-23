@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/part-of: moment
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-dns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: external-dns
+        app.kubernetes.io/part-of: moment
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: external-dns
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- range .Values.sources }}
+            - --source={{ . }}
+            {{- end }}
+            - --provider={{ .Values.provider }}
+            - --aws-zone-type={{ .Values.aws.zoneType }}
+            - --registry={{ .Values.registry }}
+            - --txt-owner-id={{ .Values.txtOwnerId }}
+            - --policy={{ .Values.policy }}
+            - --interval={{ .Values.interval }}
+            - --log-level={{ .Values.logLevel }}
+            {{- range .Values.domainFilters }}
+            - --domain-filter={{ . }}
+            {{- end }}
+            {{- range .Values.zoneIdFilters }}
+            - --zone-id-filter={{ . }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,117 @@
+namespace: moment-prod
+
+replicaCount: 2
+
+image:
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-prod-ai-service
+  tag: "prod-ab565c5-promoted-20260615-154211"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: moment-prod-ai-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-prod-ai-service-irsa-role"
+
+config:
+  ENVIRONMENT: prod
+  AWS_REGION: ap-northeast-3
+  LOG_LEVEL: INFO
+  OPENAI_MODEL: gpt-4o-mini
+  OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+  OPENAI_TIMEOUT_SECONDS: "15"
+  OPENSEARCH_HOST: vpc-moment-prod-opensearch-2trht5bolkacngjunc6lsbibuq.ap-northeast-3.es.amazonaws.com
+  BACKEND_API_URL: "http://backend-api:8080"
+
+secretRefs:
+  - envName: OPENAI_API_KEY
+    secretName: moment-prod-ai-service-secret
+    secretKey: openai-api-key
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 6
+  successThreshold: 1
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 40
+  periodSeconds: 15
+  timeoutSeconds: 2
+  failureThreshold: 5
+  successThreshold: 1
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+# HA: RollingUpdate - Spot 노드 중단 고려, maxUnavailable 0
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# HA: PDB - prod replica 2, Spot이라 중단 보호 필요 (케이스 D와 같은 50%)
+pdb:
+  enabled: true
+  minAvailable: 50%
+
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+
+# Karpenter spot-burst NodePool
+nodeSelector:
+  karpenter.sh/capacity-type: spot
+
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: spot
+    effect: NoSchedule
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ai-service
+              app.kubernetes.io/instance: ai-service-prod
+          topologyKey: kubernetes.io/hostname
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ai-service
+              app.kubernetes.io/instance: ai-service-prod
+          topologyKey: topology.kubernetes.io/zone
+
+# AZ 분산 (karpenter-spot-lab 케이스 D)
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ai-service
+        app.kubernetes.io/instance: ai-service-prod
+    matchLabelKeys:
+      - pod-template-hash

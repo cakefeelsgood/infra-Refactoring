@@ -1,0 +1,14 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "backend-api.fullname" . }}-pdb
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "backend-api.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "backend-api.selectorLabels" . | nindent 6 }}
+{{- end }}

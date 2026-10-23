@@ -1,0 +1,120 @@
+project_name   = "moment"
+env            = "prod"
+primary_region = "ap-northeast-3"
+
+network_vpc_cidr = "10.0.0.0/16"
+prod_vpc_cidr    = "10.10.0.0/16"
+dev_vpc_cidr     = "10.20.0.0/16"
+
+# M2-OPS-02:
+# Prod resource wiring exists in terraform/environments/prod,
+# but all cost-generating resources remain disabled by default.
+enable_prod_ecr = false
+enable_prod_vpc            = false
+enable_prod_vpc_endpoints  = false
+enable_prod_eks            = false
+enable_prod_nodegroups     = false
+enable_prod_karpenter      = false
+prod_karpenter_create_spot_service_linked_role = false
+enable_prod_legacy_workload_nodegroups = true
+enable_prod_data_tier      = false
+enable_prod_rds            = false
+enable_prod_rds_read_replica = false
+enable_prod_redis          = false
+enable_prod_opensearch     = false
+enable_prod_s3_raw_bucket = false
+prod_raw_bucket_name       = null
+enable_prod_sqs           = false
+
+enable_prod_profile_image_bucket       = false
+prod_profile_image_bucket_name         = null
+prod_profile_image_allowed_origins     = []
+prod_profile_image_public_read_enabled = false
+prod_profile_image_object_key_prefix   = "uploads/profile"
+
+
+# Notification SNS Topic
+enable_prod_notification_sns           = false
+prod_notification_sns_topic_name       = null
+prod_notification_sns_display_name     = "MoMent Prod Notification"
+prod_notification_sns_kms_master_key_id = null
+
+
+# Prod SQS + DLQ
+prod_sqs_visibility_timeout_seconds     = 900
+prod_sqs_message_retention_seconds      = 604800
+prod_sqs_dlq_message_retention_seconds  = 1209600
+prod_sqs_max_receive_count              = 5
+prod_sqs_receive_wait_time_seconds      = 20
+prod_sqs_delay_seconds                  = 0
+prod_sqs_max_message_size               = 262144
+prod_sqs_managed_sse_enabled            = true
+
+enable_prod_data_pipeline  = false
+enable_edge                = false
+
+# Shared/account-level resources are not duplicated in Prod.
+# Fill these only when Prod data pipeline is explicitly enabled.
+shared_lambda_collector_role_arn = ""
+
+# Network/TGW is still shared. Keep null until state handoff or remote-state strategy is approved.
+prod_transit_gateway_id = null
+prod_private_app_default_route_target = "nat"
+
+# Prod EKS requires shared IAM role ARNs when enabled.
+prod_eks_cluster_role_arn            = ""
+prod_eks_node_role_arn               = ""
+prod_eks_cluster_admin_principal_arn = ""
+prod_eks_cluster_admin_additional_principal_arns = []
+prod_eks_public_access_cidrs         = []
+
+# Prod data pipeline should stay disabled outside final demo/rehearsal.
+prod_data_pipeline_schedule_state = "DISABLED"
+
+# Prod public data Secrets Manager containers can be prepared before enabling the collector.
+# Secret values must be injected out-of-band and must not be committed.
+enable_prod_public_data_secrets             = false
+data_pipeline_public_data_sources_secret_name = "moment/prod/public-data/source-config"
+
+# Prod RDS protection defaults.
+prod_rds_instance_class          = "db.t4g.small"
+prod_rds_allocated_storage       = 50
+prod_rds_max_allocated_storage   = 200
+prod_rds_multi_az                = true
+prod_rds_backup_retention_period = 14
+prod_rds_backup_window           = "18:00-19:00"
+prod_rds_maintenance_window      = "sun:19:00-sun:20:00"
+prod_rds_deletion_protection     = true
+prod_rds_skip_final_snapshot     = false
+
+# Prod Redis defaults. HA tuning is finalized in M2-REDIS-02.
+prod_redis_node_type                  = "cache.t3.micro"
+prod_redis_automatic_failover_enabled = true
+prod_redis_multi_az_enabled           = true
+prod_redis_snapshot_retention_limit   = 3
+
+# Prod OpenSearch defaults.
+prod_opensearch_instance_type                  = "t3.medium.search"
+prod_opensearch_instance_count                 = 2
+prod_opensearch_dedicated_master_enabled       = true
+prod_opensearch_dedicated_master_type          = "t3.small.search"
+prod_opensearch_dedicated_master_count         = 3
+prod_opensearch_zone_awareness_enabled         = true
+prod_opensearch_availability_zone_count        = 2
+prod_opensearch_multi_az_with_standby_enabled  = false
+prod_opensearch_ebs_volume_size                = 50
+create_opensearch_service_linked_role          = false
+
+# Edge stays disabled until Prod ALB DNS is ready.
+prod_alb_dns_name      = ""
+prod_alb_https_enabled = false
+enable_waf             = true
+cloudfront_price_class = "PriceClass_All"
+
+# Prod ExternalDNS / Stable CloudFront origin
+enable_prod_external_dns               = false
+prod_external_dns_namespace            = "external-dns"
+prod_external_dns_service_account_name = "external-dns"
+prod_external_dns_hosted_zone_name     = "moment-team04.click"
+prod_external_dns_hosted_zone_id       = ""
+prod_api_origin_domain_name            = "origin-prod-api.moment-team04.click"

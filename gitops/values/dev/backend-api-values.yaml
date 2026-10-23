@@ -1,0 +1,202 @@
+namespace: moment-dev
+replicaCount: 1
+image:
+  repository: 611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-dev-backend-api
+  tag: dev-6e1bc50
+  pullPolicy: IfNotPresent
+serviceAccount:
+  create: true
+  name: moment-dev-backend-api-sa
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::611058323802:role/moment-dev-backend-api-irsa-role"
+config:
+  SPRING_PROFILES_ACTIVE: dev
+  AWS_REGION: ap-northeast-3
+  ENVIRONMENT: dev
+  DB_HOST: moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com
+  DB_PORT: "5432"
+  DB_NAME: moment
+  DB_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  SPRING_FLYWAY_URL: "jdbc:postgresql://moment-dev-postgres.c3qggqseuzcb.ap-northeast-3.rds.amazonaws.com:5432/moment"
+  REDIS_HOST: moment-dev-redis.o0zxzf.ng.0001.apn3.cache.amazonaws.com
+  REDIS_PORT: "6379"
+  OPENSEARCH_PORT: "443"
+  OPENSEARCH_SCHEME: https
+  OPENSEARCH_HOST: vpc-moment-dev-opensearch-hdseoos3ibawg6xwwlaa4hff3u.ap-northeast-3.es.amazonaws.com
+  PROFILE_IMAGE_BUCKET_NAME: moment-dev-profile-image-611058323802-ap-northeast-3
+  PROFILE_IMAGE_PUBLIC_URL_BASE: https://moment-dev-profile-image-611058323802-ap-northeast-3.s3.ap-northeast-3.amazonaws.com
+  PROFILE_IMAGE_PRESIGNED_URL_EXPIRATION_SECONDS: "600"
+  PROFILE_IMAGE_MAX_FILE_SIZE_BYTES: "5242880"
+  PROFILE_IMAGE_KEY_PREFIX: uploads/profile
+  SQS_QUEUE_NAME: moment-dev-public-data-queue
+  SQS_QUEUE_URL: https://sqs.ap-northeast-3.amazonaws.com/611058323802/moment-dev-public-data-queue
+  AI_SERVICE_BASE_URL: "http://ai-service:8000"
+  NOTIFICATION_SNS_ENABLED: "false"
+  NOTIFICATION_SNS_TOPIC_ARN: ""
+  SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: "always"
+  SPRING_BATCH_JOB_ENABLED: "false"
+secretRefs:
+  - envName: DB_USERNAME
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-username
+  - envName: DB_PASSWORD
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-password
+  - envName: SPRING_DATASOURCE_USERNAME
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-username
+  - envName: SPRING_DATASOURCE_PASSWORD
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-password
+  - envName: SPRING_FLYWAY_USER
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-username
+  - envName: SPRING_FLYWAY_PASSWORD
+    secretName: moment-dev-backend-api-secret
+    secretKey: db-password
+  - envName: JWT_SECRET_KEY
+    secretName: moment-dev-backend-api-secret
+    secretKey: jwt-secret
+  - envName: TOSS_SECRET_KEY
+    secretName: moment-dev-backend-api-secret
+    secretKey: toss-secret-key
+  - envName: TOSS_CLIENT_KEY
+    secretName: moment-dev-backend-api-secret
+    secretKey: toss-client-key
+  - envName: TOSS_SUCCESS_URL
+    secretName: moment-dev-backend-api-secret
+    secretKey: toss-success-url
+  - envName: TOSS_FAIL_URL
+    secretName: moment-dev-backend-api-secret
+    secretKey: toss-fail-url
+  - envName: KAKAO_CLIENT_ID
+    secretName: moment-dev-backend-api-secret
+    secretKey: kakao-client-id
+  - envName: KAKAO_REDIRECT_URI
+    secretName: moment-dev-backend-api-secret
+    secretKey: kakao-redirect-uri
+  - envName: PUBLIC_DATA_DATA_GO_KR_SERVICE_KEY
+    secretName: moment-dev-backend-api-secret
+    secretKey: public-data-data-go-kr-service-key
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 2
+  failureThreshold: 30
+  successThreshold: 1
+livenessProbe:
+  tcpSocket:
+    port: 8080
+  initialDelaySeconds: 180
+  periodSeconds: 15
+  timeoutSeconds: 2
+  failureThreshold: 5
+  successThreshold: 1
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: null
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Max
+# HA: RollingUpdate - dev는 replica 1이라 maxUnavailable 1 허용
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+# HA: PDB - dev는 replica 1이라 PDB 비활성
+pdb:
+  enabled: false
+  minAvailable: 1
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+# Karpenter on-demand-base NodePool (capacitySplit 비활성 시 모든 Pod)
+nodeSelector:
+  karpenter.sh/capacity-type: on-demand
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: on-demand
+    effect: NoSchedule
+# base/burst 분할: HPA minReplicas(1)까지 on-demand, 초과분 Spot.
+# capacity-split 웹훅 이미지를 ECR에 올리고 image.tag를 채운 뒤 true로 바꾼다 (docs/karpenter.md).
+capacitySplit:
+  enabled: false
+# AZ 분산: dev는 비용 우선이라 soft
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: backend-api
+        app.kubernetes.io/instance: backend-api-dev
+    matchLabelKeys:
+      - pod-template-hash
+# HA: topology - dev는 노드 1개라 soft 적용
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - backend-api
+          topologyKey: topology.kubernetes.io/zone
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/vpc-id: vpc-0e2f95e8df4caaefc
+    alb.ingress.kubernetes.io/subnets: subnet-06e21cf7199f5608c,subnet-096652b0bda73859e
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/success-codes: "200,401"
+    # karpenter-spot-lab 고정값: 종료 중인 대상은 30초 안에 빠진다 (preStop 20s < 30s < grace 60s)
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+    # karpenter-spot-lab 고정값: 경고 없이 사라진 대상을 10초 x 2회 안에 unhealthy로 판정
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix

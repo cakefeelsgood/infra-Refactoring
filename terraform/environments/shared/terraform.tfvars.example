@@ -1,0 +1,18 @@
+project_name   = "moment"
+env            = "shared"
+primary_region = "ap-northeast-3"
+
+# Keep false until state migration/import and apply are separately approved.
+enable_common_iam = false
+
+# Environment-specific raw bucket policies can be attached to the shared Lambda Collector role if shared IAM is used.
+# Shared Raw Bucket creation is no longer managed in terraform/environments/shared.
+raw_bucket_access_policy_arns = []
+
+# ECR is intentionally not managed by shared.
+# Dev ECR is managed by terraform/environments/dev.
+# Prod ECR is managed by terraform/environments/prod.
+
+# Keep "dev" during state migration if existing IAM resources are named moment-dev-*.
+# Changing this to "shared" can force IAM role/policy replacement.
+iam_resource_environment = "dev"

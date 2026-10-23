@@ -1,0 +1,15 @@
+project_name   = "moment"
+env            = "network"
+primary_region = "ap-northeast-3"
+
+network_vpc_cidr = "10.0.0.0/16"
+prod_vpc_cidr    = "10.10.0.0/16"
+dev_vpc_cidr     = "10.20.0.0/16"
+
+# Skeleton only. Keep false until state migration/import and apply are separately approved.
+enable_network_vpc     = false
+enable_transit_gateway = false
+enable_openvpn         = false
+
+# Keep false during Network/TGW bootstrap while Prod still owns default egress through legacy Prod NAT.
+enable_prod_private_app_default_to_tgw = false

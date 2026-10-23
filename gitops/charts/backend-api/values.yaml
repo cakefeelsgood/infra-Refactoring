@@ -1,0 +1,108 @@
+namespace: "moment"
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+config: {}
+secretRefs: []
+
+startupProbe: {}
+readinessProbe: {}
+livenessProbe: {}
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: null
+  behavior: {}
+
+# Karpenter on-demand-base NodePool에 배치 (capacitySplit 비활성 시 모든 Pod)
+# karpenter.sh/capacity-type은 Karpenter 노드에만 붙으므로 core/ops MNG에는 배치되지 않는다.
+nodeSelector:
+  karpenter.sh/capacity-type: on-demand
+
+tolerations:
+  - key: "capacity"
+    operator: "Equal"
+    value: "on-demand"
+    effect: "NoSchedule"
+
+# base/burst 분할 (capacity-split 웹훅, docs/karpenter.md)
+# enabled: HPA minReplicas까지는 웹훅이 on-demand(base, deletion-cost 1000),
+# 초과분은 Spot(burst, deletion-cost -1000)으로 배치한다. 템플릿에는 burst 기본값만 둔다.
+capacitySplit:
+  enabled: false
+  nodeSelector: {}
+  # Karpenter 노드만 허용 (core MNG 제외). base Pod는 웹훅이 on-demand 조건을 AND로 추가한다.
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: karpenter.sh/capacity-type
+              operator: In
+              values: ["on-demand", "spot"]
+  tolerations:
+    - key: "capacity"
+      operator: "Equal"
+      value: "spot"
+      effect: "NoSchedule"
+
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D)
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+topologySpreadConstraints: []
+
+# 멀티AZ 분산 (core 노드 2개: 3a, 3c)
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - backend-api
+          topologyKey: topology.kubernetes.io/zone
+
+ingress:
+  enabled: true
+  className: alb
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Rolling Update 전략
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# PodDisruptionBudget
+pdb:
+  enabled: true
+  minAvailable: 1
