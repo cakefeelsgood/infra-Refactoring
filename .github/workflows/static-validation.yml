@@ -1,0 +1,96 @@
+name: Static Validation
+
+# Static checks only: no AWS credentials, no cluster access, no apply.
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "gitops/**"
+      - "scripts/validation/**"
+      - "tools/capacity-split-webhook/**"
+      - ".github/workflows/static-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform fmt / validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff terraform
+
+      - name: terraform validate
+        run: |
+          for env in dev prod network shared; do
+            echo "== $env"
+            terraform -chdir="terraform/environments/$env" init -backend=false -input=false
+            terraform -chdir="terraform/environments/$env" validate
+          done
+
+  pd-maxpods:
+    name: VPC CNI Prefix Delegation / maxPods consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+
+      - name: check-pd-maxpods
+        run: scripts/validation/check-pd-maxpods.sh
+
+  helm:
+    name: Helm lint / template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: helm lint and template per environment
+        run: |
+          for chart in gitops/charts/*/; do
+            c=$(basename "$chart")
+            for env in dev prod; do
+              values="gitops/values/$env/$c-values.yaml"
+              [ -f "$values" ] || continue
+              echo "== $c ($env)"
+              helm lint "$chart" -f "$values"
+              helm template "$c-$env" "$chart" -f "$values" > /dev/null
+            done
+          done
+
+  webhook:
+    name: capacity-split webhook unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/capacity-split-webhook
+    steps:
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/capacity-split-webhook/go.mod
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -d .; exit 1; }
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race ./...
