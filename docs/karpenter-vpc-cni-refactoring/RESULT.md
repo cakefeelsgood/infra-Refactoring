@@ -66,13 +66,14 @@
 | legacy 노드그룹 분리(모듈·플래그·moved 블록), 서비스 쪽 `workload: ai/batch` 참조 | 분리 확인, 참조 없음 | `evidence/phase7-nodegroup-refs.log` |
 | 불변식 1~3, 추가된 줄의 서브넷/SG ID·시크릿, TODO/skip | 통과(계정 ID는 CLAUDE.md 예외 범위의 IRSA ARN·ECR 주소 4줄만) | `evidence/phase8-final-invariants.log` |
 | 런북의 /28 계산 스니펫 | 가짜 데이터로 기대값 11 확인 | `evidence/phase8-runbook-snippet.log` |
+| GitHub Actions `static-validation.yml` (fork PR #2, 커밋 `8727980`, run 39922770973) | terraform fmt/validate, PD/maxPods, helm, 웹훅 gofmt·vet·`go test -race` 전부 pass. 첫 실행(`3d15ca6`)은 gofmt 필드 정렬로 실패 → `8727980`에서 수정 | GitHub Actions 로그 |
 | 독립 리뷰(code-reviewer 에이전트) | REQUEST CHANGES → 전부 반영 후 재검증 PASS | 8절 |
 
 ## 4. 검증하지 못한 것
 
 | 항목 | 이유 | 대신 한 것 / 남은 방법 |
 | --- | --- | --- |
-| 웹훅 Go 단위 테스트(`go test -race`), gofmt, go vet | 로컬에 Go 없음, Docker 데몬 꺼져 있음. CLAUDE.md상 도구 설치 안 함 | 코드 리딩. CI `static-validation.yml`의 `webhook` job이 실행한다 |
+| 웹훅 Go 단위 테스트(`go test -race`), gofmt, go vet | 로컬에는 Go·Docker가 없어 실행하지 못함 | **CI에서 실행해 통과**(아래 3절 마지막 행) |
 | kubeconform | 미설치 | CRD 스키마 기반 구조 검사(Ruby)로 대체 |
 | `terraform plan` | 자격 증명·원격 상태 필요(금지) | validate까지만 |
 | Karpenter 1.15.0 ↔ EKS 1.35 호환 | AWS·공식 표 확인은 사용자 몫(D1) | 5절 확인 목록 |
