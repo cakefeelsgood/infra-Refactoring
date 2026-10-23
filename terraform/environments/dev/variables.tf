@@ -878,3 +878,9 @@ variable "dev_karpenter_node_subnet_cidrs" {
     "10.20.48.0/20"
   ]
 }
+
+variable "enable_dev_legacy_workload_nodegroups" {
+  description = "Keep the legacy batch/ai managed node groups. Set false after batch-job/ai-service run on Karpenter NodePools (docs/karpenter.md)."
+  type        = bool
+  default     = true
+}

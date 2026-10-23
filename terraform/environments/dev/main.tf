@@ -435,6 +435,9 @@ module "dev_eks_nodegroups" {
   node_role_arn = module.dev_iam[0].eks_node_role_arn
   subnet_ids    = module.dev_vpc[0].dev_private_app_subnet_ids
 
+  # core: system add-ons, ops: controllers (Karpenter, ALB Controller, metrics-server).
+  # batch/ai workloads move to Karpenter NodePools (gitops/apps/dev/karpenter/nodepools.yaml);
+  # their old node groups live in module.dev_eks_legacy_nodegroups until the cutover.
   node_groups = {
     core_on_demand = {
       name           = "${var.project_name}-dev-core-on-demand-ng"
@@ -454,6 +457,49 @@ module "dev_eks_nodegroups" {
       taints = []
     }
 
+    ops_on_demand = {
+      name           = "${var.project_name}-dev-ops-on-demand-ng"
+      capacity_type  = "ON_DEMAND"
+      instance_types = ["t3.medium"]
+      min_size       = 1
+      desired_size   = 1
+      max_size       = 2
+      disk_size      = 20
+      max_pods       = 40
+
+      labels = {
+        workload = "ops"
+        capacity = "on-demand"
+      }
+
+      taints = [
+        {
+          key    = "workload"
+          value  = "ops"
+          effect = "NO_SCHEDULE"
+        }
+      ]
+    }
+  }
+
+  common_tags = local.common_tags
+}
+
+# Legacy batch/ai node groups, kept until their workloads run on Karpenter NodePools.
+# Set enable_dev_legacy_workload_nodegroups = false only after the service values are synced
+# and the pods are Running on Karpenter nodes (docs/karpenter.md "적용 순서").
+# State moved from module.dev_eks_nodegroups in moved-legacy-workload-nodegroups.tf.
+module "dev_eks_legacy_nodegroups" {
+  count  = var.enable_dev_vpc && var.enable_dev_iam && var.enable_dev_eks && var.enable_dev_nodegroups && var.enable_dev_legacy_workload_nodegroups ? 1 : 0
+  source = "../../modules/eks-nodegroup"
+
+  project_name  = var.project_name
+  environment   = "dev"
+  cluster_name  = module.dev_eks[0].cluster_name
+  node_role_arn = module.dev_iam[0].eks_node_role_arn
+  subnet_ids    = module.dev_vpc[0].dev_private_app_subnet_ids
+
+  node_groups = {
     batch_spot = {
       name           = "${var.project_name}-dev-batch-spot-ng"
       capacity_type  = "SPOT"
@@ -482,7 +528,6 @@ module "dev_eks_nodegroups" {
         }
       ]
     }
-
     ai_spot = {
       name           = "${var.project_name}-dev-ai-spot-ng"
       capacity_type  = "SPOT"
@@ -507,30 +552,6 @@ module "dev_eks_nodegroups" {
         {
           key    = "capacity"
           value  = "spot"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-    }
-
-    ops_on_demand = {
-      name           = "${var.project_name}-dev-ops-on-demand-ng"
-      capacity_type  = "ON_DEMAND"
-      instance_types = ["t3.medium"]
-      min_size       = 1
-      desired_size   = 1
-      max_size       = 2
-      disk_size      = 20
-      max_pods       = 40
-
-      labels = {
-        workload = "ops"
-        capacity = "on-demand"
-      }
-
-      taints = [
-        {
-          key    = "workload"
-          value  = "ops"
           effect = "NO_SCHEDULE"
         }
       ]
