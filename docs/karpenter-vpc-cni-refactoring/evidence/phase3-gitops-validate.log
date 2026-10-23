@@ -1,0 +1,65 @@
+# phase3 gitops validation
+## YAML parse (ruby)
+OK gitops/apps/dev/karpenter/ec2nodeclass.yaml
+OK gitops/apps/dev/karpenter/nodepools.yaml
+OK gitops/apps/prod/karpenter/ec2nodeclass.yaml
+OK gitops/apps/prod/karpenter/nodepools.yaml
+OK gitops/argocd/dev/applications/karpenter-crd-dev.yaml
+OK gitops/argocd/dev/applications/karpenter-dev.yaml
+OK gitops/argocd/dev/applications/karpenter-nodepools-dev.yaml
+OK gitops/argocd/dev/karpenter-project.yaml
+OK gitops/argocd/dev/repositories/karpenter-oci-helm-repo.yaml
+OK gitops/argocd/prod/applications/karpenter-crd-prod.yaml
+OK gitops/argocd/prod/applications/karpenter-nodepools-prod.yaml
+OK gitops/argocd/prod/applications/karpenter-prod.yaml
+OK gitops/argocd/prod/karpenter-project.yaml
+OK gitops/argocd/prod/repositories/karpenter-oci-helm-repo.yaml
+## CRD structural check (karpenter-crd 1.15.0 rendered schemas)
+OK   gitops/apps/dev/karpenter/ec2nodeclass.yaml EC2NodeClass/default
+OK   gitops/apps/dev/karpenter/nodepools.yaml NodePool/on-demand-base
+OK   gitops/apps/dev/karpenter/nodepools.yaml NodePool/spot-burst
+OK   gitops/apps/prod/karpenter/ec2nodeclass.yaml EC2NodeClass/default
+OK   gitops/apps/prod/karpenter/nodepools.yaml NodePool/on-demand-base
+OK   gitops/apps/prod/karpenter/nodepools.yaml NodePool/spot-burst
+checked=6 errors=0
+exit=0
+## helm template karpenter 1.15.0 with karpenter-dev.yaml values
+template exit=0
+34:    eks.amazonaws.com/role-arn: arn:aws:iam::611058323802:role/moment-dev-karpenter-controller-irsa-role
+35-automountServiceAccountToken: false
+396:            - name: CLUSTER_NAME
+397-              value: "moment-dev-eks-cluster"
+400:            - name: INTERRUPTION_QUEUE
+401-              value: "moment-dev-karpenter-interruption"
+replicas=1 nodeSelector={"capacity"=>"on-demand", "kubernetes.io/os"=>"linux", "workload"=>"ops"} tolerations=[{"effect"=>"NoSchedule", "key"=>"workload", "operator"=>"Equal", "value"=>"ops"}, {"key"=>"CriticalAddonsOnly", "operator"=>"Exists"}]
+## helm template karpenter 1.15.0 with karpenter-prod.yaml values
+template exit=0
+34:    eks.amazonaws.com/role-arn: arn:aws:iam::611058323802:role/moment-prod-karpenter-controller-irsa-role
+35-automountServiceAccountToken: false
+396:            - name: CLUSTER_NAME
+397-              value: "moment-prod-eks-cluster"
+400:            - name: INTERRUPTION_QUEUE
+401-              value: "moment-prod-karpenter-interruption"
+replicas=2 nodeSelector={"capacity"=>"on-demand", "kubernetes.io/os"=>"linux", "workload"=>"ops"} tolerations=[{"effect"=>"NoSchedule", "key"=>"workload", "operator"=>"Equal", "value"=>"ops"}, {"key"=>"CriticalAddonsOnly", "operator"=>"Exists"}]
+## negative test (typo field + bad enum must FAIL)
+FAIL /private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml NodePool/on-demand-base
+FAIL /private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml NodePool/spot-burst
+/private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml:NodePool/on-demand-base.spec.disruption.consolidationPolicy: 'WhenIdle' not in enum ["WhenEmpty", "WhenEmptyOrUnderutilized", "Balanced"]
+/private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml:NodePool/on-demand-base.spec.disruption: unknown field 'consolidateAftr'
+/private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml:NodePool/spot-burst.spec.disruption.consolidationPolicy: 'WhenIdle' not in enum ["WhenEmpty", "WhenEmptyOrUnderutilized", "Balanced"]
+/private/tmp/claude-501/-Users-mjkim-infra-refactoring/bbe5f57f-36d5-460a-96f3-02962242408b/scratchpad/neg-nodepools.yaml:NodePool/spot-burst.spec.disruption: unknown field 'consolidateAftr'
+checked=2 errors=4
+exit=1 (expected 1)
+
+## post-review re-check (2026-10-23T07:48:14Z): prod EC2NodeClass alias pinned to al2023@v20261012
+OK   gitops/apps/dev/karpenter/ec2nodeclass.yaml EC2NodeClass/default
+OK   gitops/apps/dev/karpenter/nodepools.yaml NodePool/on-demand-base
+OK   gitops/apps/dev/karpenter/nodepools.yaml NodePool/spot-burst
+OK   gitops/apps/prod/karpenter/ec2nodeclass.yaml EC2NodeClass/default
+OK   gitops/apps/prod/karpenter/nodepools.yaml NodePool/on-demand-base
+OK   gitops/apps/prod/karpenter/nodepools.yaml NodePool/spot-burst
+checked=6 errors=0
+exit=0
+gitops/apps/dev/karpenter/ec2nodeclass.yaml alias=al2023@latest CEL(format,family,maxLength)=OK
+gitops/apps/prod/karpenter/ec2nodeclass.yaml alias=al2023@v20261012 CEL(format,family,maxLength)=OK
+awslabs/amazon-eks-ami release v20261012: published 2026-10-14, release notes list AL2023 source AMIs for K8s 1.33-1.35

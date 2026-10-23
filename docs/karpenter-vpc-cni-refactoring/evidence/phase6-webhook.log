@@ -1,0 +1,39 @@
+# phase6 capacity-split webhook
+## helm lint (prod values)
+1 chart(s) linted, 0 chart(s) failed
+## helm template (prod values, image.tag empty) -> expect 0 resources
+0
+## helm template (prod values, --set image.tag=v0.1.0) -> kinds
+   2 kind: ClusterRole
+   2 kind: ClusterRoleBinding
+   1 kind: Deployment
+   2 kind: Job
+   1 kind: MutatingWebhookConfiguration
+   1 kind: Role
+   1 kind: RoleBinding
+   1 kind: Service
+   2 kind: ServiceAccount
+deployment replicas=1 strategy=Recreate env=["ENABLE_TOPOLOGY_SPREAD=true", "FAIL_OPEN=true"] image=611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-prod-capacity-split-webhook:v0.1.0 nodeSelector={"capacity"=>"on-demand", "workload"=>"ops"}
+job capacity-split-webhook-certgen-create hook=PreSync args=["create", "--host=capacity-split-webhook,capacity-split-webhook.capacity-split-system.svc", "--namespace=capacity-split-system", "--secret-name=capacity-split-webhook-tls"]
+job capacity-split-webhook-certgen-patch hook=PostSync args=["patch", "--webhook-name=capacity-split-webhook", "--namespace=capacity-split-system", "--secret-name=capacity-split-webhook-tls", "--patch-mutating=true", "--patch-validating=false"]
+webhook failurePolicy=Ignore timeout=10 nsSelector={"matchExpressions"=>[{"key"=>"capacity-split", "operator"=>"In", "values"=>["enabled"]}, {"key"=>"kubernetes.io/metadata.name", "operator"=>"NotIn", "values"=>["capacity-split-system", "kube-system"]}]} objectSelector={"matchLabels"=>{"capacity-split.moment.io/enabled"=>"true"}}
+## helm lint (dev values)
+1 chart(s) linted, 0 chart(s) failed
+## helm template (dev values, image.tag empty) -> expect 0 resources
+0
+## helm template (dev values, --set image.tag=v0.1.0) -> kinds
+   2 kind: ClusterRole
+   2 kind: ClusterRoleBinding
+   1 kind: Deployment
+   2 kind: Job
+   1 kind: MutatingWebhookConfiguration
+   1 kind: Role
+   1 kind: RoleBinding
+   1 kind: Service
+   2 kind: ServiceAccount
+deployment replicas=1 strategy=Recreate env=["ENABLE_TOPOLOGY_SPREAD=true", "FAIL_OPEN=true"] image=611058323802.dkr.ecr.ap-northeast-3.amazonaws.com/moment-dev-capacity-split-webhook:v0.1.0 nodeSelector={"capacity"=>"on-demand", "workload"=>"ops"}
+job capacity-split-webhook-certgen-create hook=PreSync args=["create", "--host=capacity-split-webhook,capacity-split-webhook.capacity-split-system.svc", "--namespace=capacity-split-system", "--secret-name=capacity-split-webhook-tls"]
+job capacity-split-webhook-certgen-patch hook=PostSync args=["patch", "--webhook-name=capacity-split-webhook", "--namespace=capacity-split-system", "--secret-name=capacity-split-webhook-tls", "--patch-mutating=true", "--patch-validating=false"]
+webhook failurePolicy=Ignore timeout=10 nsSelector={"matchExpressions"=>[{"key"=>"capacity-split", "operator"=>"In", "values"=>["enabled"]}, {"key"=>"kubernetes.io/metadata.name", "operator"=>"NotIn", "values"=>["capacity-split-system", "kube-system"]}]} objectSelector={"matchLabels"=>{"capacity-split.moment.io/enabled"=>"true"}}
+## Go unit tests
+NOT RUN: go and docker are not available locally (command -v go: none; docker daemon not running). Run: cd tools/capacity-split-webhook && go test -race ./...

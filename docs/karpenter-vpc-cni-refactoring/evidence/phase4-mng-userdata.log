@@ -1,0 +1,22 @@
+# phase4 MNG user_data render check
+## expression copied from terraform/modules/eks-nodegroup/main.tf, evaluated with terraform console (max_pods=40)
+
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="//"
+
+--//
+Content-Type: application/node.eks.aws
+
+---
+apiVersion: node.eks.aws/v1alpha1
+kind: NodeConfig
+spec:
+  kubelet:
+    config:
+      maxPods: 40
+
+--//--
+
+
+## NodeConfig YAML parse
+kind=NodeConfig apiVersion=node.eks.aws/v1alpha1 maxPods=40
