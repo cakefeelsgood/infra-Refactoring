@@ -139,6 +139,16 @@ Prod EKS를 명시적으로 활성화하는 경우에는 다음 변수도 같이
 | kube-proxy | v1.35.3-eksbuild.2 |
 | aws-ebs-csi-driver | v1.60.0-eksbuild.1 |
 
+vpc-cni `configuration_values` (2026-10-23):
+
+| 키 | 값 | 근거 |
+| --- | --- | --- |
+| `enableNetworkPolicy` | `"true"` | M5-SEC-03. 이전에는 `modules/eks`가 이 값을 전달하지 못했다(아래 주의) |
+| `env.ENABLE_PREFIX_DELEGATION` | `"true"` | VPC CNI 실험. kubelet `maxPods: 40`과 한 묶음 ([런북](runbooks/vpc-cni-prefix-delegation.md)) |
+| `env.WARM_IP_TARGET` / `env.MINIMUM_IP_TARGET` | `"1"` / `"3"` | PD의 prefix 선점을 줄인다(실험에서 서브넷 소비 +19% → +7%) |
+
+> 주의: 2026-10-23 이전 `modules/eks`의 addons 타입에 `configuration_values`가 없어서, `main.tf`에 적힌 `enableNetworkPolicy`가 Terraform 타입 변환에서 버려지고 있었다. 수정 후 처음 apply할 때 실제 설정이 바뀐다.
+
 AWS EBS CSI Driver는 전용 IRSA Role을 사용한다.
 
 ServiceAccount subject는 다음과 같다.
@@ -251,6 +261,8 @@ kubectl get pods -A
 ---
 
 ## Prod Managed NodeGroup 운영 기준 (M2-EKS-04)
+
+> **2026-10-23 변경:** batch/ai 워크로드는 Karpenter NodePool(`on-demand-base`, `spot-burst`)로 옮긴다. 기존 batch/ai 노드그룹(`batch_on_demand`, `batch_spot`, `ai_spot`)은 `module.<env>_eks_legacy_nodegroups`로 옮겨 두었고, 이전이 끝나면 `enable_<env>_legacy_workload_nodegroups = false`로 제거한다. 최종적으로 `core_on_demand`(시스템 애드온)와 `ops_on_demand`(Karpenter 등 컨트롤러)만 남으며, 모든 노드그룹은 `max_pods = 40`(VPC CNI Prefix Delegation)이다. 현재 구성은 [karpenter.md](karpenter.md)를 기준으로 한다. 아래는 M2-EKS-04 당시 기준이다.
 
 ### 목적
 
@@ -375,5 +387,5 @@ terraform/environments/prod/main.tf  # module "prod_eks_nodegroups"
 | 항목 | 담당 이슈 |
 | --- | --- |
 | 실제 애플리케이션 Deployment 배치 변경 | M3 GitOps/Manifest |
-| HPA / Cluster Autoscaler / Karpenter 튜닝 | M4/M5 |
+| HPA / Cluster Autoscaler / Karpenter 튜닝 | Karpenter는 2026-10-23 도입([karpenter.md](karpenter.md)). Cluster Autoscaler는 쓰지 않음 |
 | Prod 전체 apply | 별도 승인 후 수행 |
