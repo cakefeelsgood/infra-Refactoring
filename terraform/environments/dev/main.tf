@@ -388,9 +388,21 @@ module "dev_eks" {
   cluster_admin_principal_arn                 = var.dev_eks_cluster_admin_principal_arn
 
   addons = {
+    # Prefix Delegation and kubelet maxPods (40) change together: every node group below
+    # (max_pods) and gitops/apps/dev/karpenter/ec2nodeclass.yaml (kubelet.maxPods).
+    # A mismatch left pods stuck in ContainerCreating in the VPC CNI experiment.
+    # Checked by scripts/validation/check-pd-maxpods.sh.
+    # No service_account_role_arn: aws-node uses AmazonEKS_CNI_Policy on the node roles.
     vpc-cni = {
-      addon_version        = "v1.21.1-eksbuild.1"
-      configuration_values = jsonencode({ enableNetworkPolicy = "true" })
+      addon_version = "v1.21.1-eksbuild.1"
+      configuration_values = jsonencode({
+        enableNetworkPolicy = "true"
+        env = {
+          ENABLE_PREFIX_DELEGATION = "true"
+          WARM_IP_TARGET           = "1"
+          MINIMUM_IP_TARGET        = "3"
+        }
+      })
     }
 
     coredns = {
@@ -432,6 +444,7 @@ module "dev_eks_nodegroups" {
       desired_size   = 2
       max_size       = 2
       disk_size      = 20
+      max_pods       = 40
 
       labels = {
         workload = "core"
@@ -449,6 +462,7 @@ module "dev_eks_nodegroups" {
       desired_size   = 1
       max_size       = 2
       disk_size      = 20
+      max_pods       = 40
 
       labels = {
         workload = "batch"
@@ -477,6 +491,7 @@ module "dev_eks_nodegroups" {
       desired_size   = 0
       max_size       = 2
       disk_size      = 30
+      max_pods       = 40
 
       labels = {
         workload = "ai"
@@ -505,6 +520,7 @@ module "dev_eks_nodegroups" {
       desired_size   = 1
       max_size       = 2
       disk_size      = 20
+      max_pods       = 40
 
       labels = {
         workload = "ops"

@@ -22,6 +22,11 @@ spec:
     Environment: prod
     Owner: team04
     ManagedBy: karpenter
+  # maxPods 40 requires VPC CNI Prefix Delegation (vpc-cni configuration_values in
+  # terraform/environments/<env>/main.tf). Change both together; checked by
+  # scripts/validation/check-pd-maxpods.sh.
+  kubelet:
+    maxPods: 40
   blockDeviceMappings:
     - deviceName: /dev/xvda
       ebs:

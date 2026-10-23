@@ -25,6 +25,27 @@ resource "aws_launch_template" "node_group" {
     }
   }
 
+  # AL2023 (nodeadm) NodeConfig merged with the EKS-generated bootstrap config.
+  # Only rendered when max_pods is set, so node groups without it keep the EKS default.
+  user_data = each.value.max_pods == null ? null : base64encode(<<-EOT
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="//"
+
+    --//
+    Content-Type: application/node.eks.aws
+
+    ---
+    apiVersion: node.eks.aws/v1alpha1
+    kind: NodeConfig
+    spec:
+      kubelet:
+        config:
+          maxPods: ${each.value.max_pods}
+
+    --//--
+  EOT
+  )
+
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
