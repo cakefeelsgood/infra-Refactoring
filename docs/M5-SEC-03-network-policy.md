@@ -69,6 +69,7 @@ ALB에서 backend-api(8080)로의 헬스체크/트래픽 허용
 ## Prod 적용 현황
 
 - vpc-cni enforcement 활성화 완료
+  - **정정(2026-10-23):** `terraform/modules/eks`가 addon `configuration_values`를 전달하지 않아 `enableNetworkPolicy=true`는 코드상으로 적용되지 않은 상태였다. 콘솔 수동 적용 여부는 코드로 알 수 없다. 모듈 수정 후 다음 apply부터 실제로 반영된다([eks.md](eks.md) Add-on 구성).
 - NetworkPolicy manifest 작성 완료
 - ArgoCD sync는 Dev 검증 완료 후 수행 예정
 

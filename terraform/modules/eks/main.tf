@@ -221,6 +221,12 @@ resource "aws_eks_addon" "this" {
   resolve_conflicts_on_create = each.value.resolve_conflicts_on_create
   resolve_conflicts_on_update = each.value.resolve_conflicts_on_update
 
+  # Previously missing: callers' configuration_values (vpc-cni enableNetworkPolicy, Prefix Delegation)
+  # were silently dropped by the object type conversion.
+  configuration_values = each.value.configuration_values
+
+  # Keep passing service_account_role_arn on every update. An OVERWRITE update without it
+  # removed the aws-node IRSA binding in the VPC CNI experiment (403 CrashLoop).
   service_account_role_arn = try(each.value.service_account_role_arn, null) != null ? each.value.service_account_role_arn : (
     each.key == "aws-ebs-csi-driver" && local.ebs_csi_irsa_enabled ? aws_iam_role.ebs_csi[0].arn : null
   )
