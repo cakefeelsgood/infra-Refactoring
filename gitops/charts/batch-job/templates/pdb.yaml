@@ -1,0 +1,14 @@
+{{- if and (eq (.Values.mode | default "cronjob") "worker") .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "batch-job.fullname" . }}-pdb
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "batch-job.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "batch-job.selectorLabels" . | nindent 6 }}
+{{- end }}

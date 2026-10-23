@@ -149,7 +149,7 @@
 
 ## 5. 완료 기준
 - [x] 모든 Phase 체크 완료, 정적 검증 전부 통과
-- [ ] PD와 maxPods가 같은 커밋에 있음 — 커밋은 사용자 요청 시 수행(커밋 단위는 RESULT.md에 제안)
+- [x] PD와 maxPods가 같은 커밋에 있음 (`ca526b6`)
 - [x] 정합성 검증 스크립트 통과
 - [x] 노드 Role(MNG, Karpenter) 모두 `AmazonEKS_CNI_Policy`, `service_account_role_arn` 전달 경로 유지
 - [x] 결정 D1~D7 기록

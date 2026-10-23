@@ -1,0 +1,51 @@
+# phase4 PD/maxPods consistency check
+## actual repository (expect exit=0)
+INFO [dev] ENABLE_PREFIX_DELEGATION=true (vpc-cni add-on)
+INFO [dev] managed node groups=4 with max_pods=4 values=[40 40 40 40]
+INFO [dev] EC2NodeClasses=1 with kubelet.maxPods=1 values=[40]
+OK   [dev] every managed node group sets max_pods
+OK   [dev] every EC2NodeClass sets kubelet.maxPods
+OK   [dev] all maxPods values equal 40
+INFO [prod] ENABLE_PREFIX_DELEGATION=true (vpc-cni add-on)
+INFO [prod] managed node groups=5 with max_pods=5 values=[40 40 40 40 40]
+INFO [prod] EC2NodeClasses=1 with kubelet.maxPods=1 values=[40]
+OK   [prod] every managed node group sets max_pods
+OK   [prod] every EC2NodeClass sets kubelet.maxPods
+OK   [prod] all maxPods values equal 40
+OK   [all] modules/eks-nodegroup renders max_pods into the launch template NodeConfig
+OK   [all] MNG node role (modules/iam aws_iam_role.eks_node) has AmazonEKS_CNI_Policy
+OK   [dev] managed node groups use module.dev_iam eks_node_role_arn
+OK   [prod] managed node groups use module.prod_iam eks_node_role_arn
+OK   [all] Karpenter node role has AmazonEKS_CNI_Policy (modules/karpenter)
+RESULT: PASS
+exit=0
+
+## negative A: PD off + maxPods 40 (expect exit=1)
+FAIL [prod] PD off but maxPods [40 40 40 40 40 40] exceeds the secondary-IP limit 17 (pods would stick in ContainerCreating)
+RESULT: FAIL
+exit=1
+
+## negative B: PD on + one node group without max_pods (expect exit=1)
+FAIL [prod] PD on but 1 managed node group(s) keep the ENI-based default maxPods
+RESULT: FAIL
+exit=1
+
+## negative C: PD on + EC2NodeClass maxPods 17 (expect exit=1)
+FAIL [prod] maxPods values differ from 40: [17]
+RESULT: FAIL
+exit=1
+
+## negative D: Karpenter node role without CNI policy (expect exit=1)
+FAIL [all] Karpenter node role is missing AmazonEKS_CNI_Policy (modules/karpenter)
+RESULT: FAIL
+exit=1
+
+## negative E: legacy batch/ai module node group without max_pods (expect exit=1)
+FAIL [prod] PD on but 1 managed node group(s) keep the ENI-based default maxPods
+RESULT: FAIL
+exit=1
+
+## negative F: eks-nodegroup module does not render max_pods (expect exit=1)
+FAIL [all] modules/eks-nodegroup does not render max_pods into user_data (max_pods would be ignored)
+RESULT: FAIL
+exit=1

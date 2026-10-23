@@ -1,0 +1,63 @@
+== backend-api / dev
+==> Linting gitops/charts/backend-api
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== backend-api / prod
+==> Linting gitops/charts/backend-api
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== ai-service / dev
+==> Linting gitops/charts/ai-service
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== ai-service / prod
+==> Linting gitops/charts/ai-service
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== batch-job / dev
+==> Linting gitops/charts/batch-job
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== batch-job / prod
+==> Linting gitops/charts/batch-job
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== network-policy / dev
+==> Linting gitops/charts/network-policy
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== network-policy / prod
+==> Linting gitops/charts/network-policy
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0
+== external-dns / prod
+==> Linting gitops/charts/external-dns
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+lint exit=0
+template exit=0

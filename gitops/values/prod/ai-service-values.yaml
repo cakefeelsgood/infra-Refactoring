@@ -63,20 +63,24 @@ strategy:
     maxSurge: 1
     maxUnavailable: 0
 
-# HA: PDB - prod replica 2, Spot이라 중단 보호 필요
+# HA: PDB - prod replica 2, Spot이라 중단 보호 필요 (케이스 D와 같은 50%)
 pdb:
   enabled: true
-  minAvailable: 1
+  minAvailable: 50%
 
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+
+# Karpenter spot-burst NodePool
 nodeSelector:
-  workload: ai
-  capacity: spot
+  karpenter.sh/capacity-type: spot
 
 tolerations:
-  - key: workload
-    operator: Equal
-    value: ai
-    effect: NoSchedule
   - key: capacity
     operator: Equal
     value: spot
@@ -99,3 +103,15 @@ affinity:
               app.kubernetes.io/name: ai-service
               app.kubernetes.io/instance: ai-service-prod
           topologyKey: topology.kubernetes.io/zone
+
+# AZ 분산 (karpenter-spot-lab 케이스 D)
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ai-service
+        app.kubernetes.io/instance: ai-service-prod
+    matchLabelKeys:
+      - pod-template-hash

@@ -133,10 +133,36 @@ strategy:
 pdb:
   enabled: false
   minAvailable: 1
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+# Karpenter on-demand-base NodePool (capacitySplit 비활성 시 모든 Pod)
 nodeSelector:
-  workload: core
-  capacity: on-demand
-tolerations: []
+  karpenter.sh/capacity-type: on-demand
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: on-demand
+    effect: NoSchedule
+# base/burst 분할: HPA minReplicas(1)까지 on-demand, 초과분 Spot.
+# capacity-split 웹훅 이미지를 ECR에 올리고 image.tag를 채운 뒤 true로 바꾼다 (docs/karpenter.md).
+capacitySplit:
+  enabled: false
+# AZ 분산: dev는 비용 우선이라 soft
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: backend-api
+        app.kubernetes.io/instance: backend-api-dev
+    matchLabelKeys:
+      - pod-template-hash
 # HA: topology - dev는 노드 1개라 soft 적용
 affinity:
   podAntiAffinity:
@@ -161,6 +187,8 @@ ingress:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/success-codes: "200,401"
+    # karpenter-spot-lab 고정값: 종료 중인 대상은 30초 안에 빠진다 (preStop 20s < 30s < grace 60s)
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
   hosts:
     - host: ""

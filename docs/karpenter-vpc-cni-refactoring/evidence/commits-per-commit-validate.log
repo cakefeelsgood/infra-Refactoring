@@ -1,0 +1,31 @@
+# per-commit static validation (each commit checked out alone in a temporary worktree)
+
+## e2da9fb docs: Karpenter·VPC CNI 고도화 작업 규칙과 계획 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=n/a helm-template=ok
+
+## 3ec562d fix(eks): addon configuration_values 전달 누락 수정
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=n/a helm-template=ok
+
+## f1c5a20 feat(karpenter): Karpenter AWS 리소스와 노드 전용 서브넷 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=n/a helm-template=ok
+
+## fb8ecc3 feat(karpenter): Karpenter 컨트롤러와 NodePool GitOps 구성 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=n/a helm-template=ok
+
+## ca526b6 feat(vpc-cni): Prefix Delegation과 maxPods 40을 함께 적용
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok
+
+## 3addcd8 refactor(eks): batch/ai 노드그룹을 legacy 모듈로 분리
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok
+
+## 663963b docs: Karpenter Spot 혼합 운영 문서와 적용 순서 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok
+
+## 79113d6 feat(workloads): 서비스 워크로드를 Karpenter NodePool로 배치하고 Spot 중단 대응 설정 적용
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok
+
+## 69295fb feat(webhook): base/burst 분할 capacity-split 웹훅 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok
+
+## 79cef8c ci: 정적 검증 워크플로 추가
+ fmt=ok validate-dev=ok validate-prod=ok pd-maxpods=ok helm-template=ok

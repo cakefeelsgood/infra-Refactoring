@@ -1,0 +1,41 @@
+{{- if .Values.image.tag }}
+# caBundle is patched by the certgen PostSync job; the ArgoCD Application ignores that field.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "capacity-split-webhook.labels" . | nindent 4 }}
+webhooks:
+  - name: capacity-split.moment.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: NoneOnDryRun
+    # Ignore: an unavailable webhook must not block pod creation. Pods admitted without it keep the
+    # template defaults (burst on Spot, no pod-deletion-cost). See docs/karpenter.md.
+    failurePolicy: {{ .Values.failurePolicy }}
+    reinvocationPolicy: Never
+    timeoutSeconds: {{ .Values.timeoutSeconds }}
+    namespaceSelector:
+      matchExpressions:
+        - key: {{ .Values.namespaceSelectorLabel.key }}
+          operator: In
+          values: [{{ .Values.namespaceSelectorLabel.value | quote }}]
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [{{ .Values.namespace | quote }}, "kube-system"]
+    objectSelector:
+      matchLabels:
+        {{ .Values.objectSelectorLabel.key }}: {{ .Values.objectSelectorLabel.value | quote }}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+        scope: Namespaced
+    clientConfig:
+      service:
+        name: {{ .Values.name }}
+        namespace: {{ .Values.namespace }}
+        path: /mutate
+        port: 443
+{{- end }}

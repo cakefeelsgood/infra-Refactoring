@@ -59,10 +59,32 @@ strategy:
 pdb:
   enabled: false
   minAvailable: 1
+# Spot 회수·스케일 인 대응 (karpenter-spot-lab 케이스 D: preStop 20s + grace 60s)
+# preStop 동안 Pod는 계속 응답하면서 Service/ALB 대상에서 빠진다. 네이티브 sleep 액션이라 셸이 필요 없다.
+terminationGracePeriodSeconds: 60
+lifecycle:
+  preStop:
+    sleep:
+      seconds: 20
+# Karpenter on-demand-base NodePool (기존 core On-Demand 배치 유지)
 nodeSelector:
-  workload: core
-  capacity: on-demand
-tolerations: []
+  karpenter.sh/capacity-type: on-demand
+tolerations:
+  - key: capacity
+    operator: Equal
+    value: on-demand
+    effect: NoSchedule
+# AZ 분산: dev는 비용 우선이라 soft
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: ai-service
+        app.kubernetes.io/instance: ai-service-dev
+    matchLabelKeys:
+      - pod-template-hash
 affinity:
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:

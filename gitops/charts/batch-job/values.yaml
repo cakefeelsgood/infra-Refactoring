@@ -35,9 +35,22 @@ resources:
     cpu: "500m"
     memory: "512Mi"
 
-# batch On-Demand 노드에 배치
+# Karpenter on-demand-base NodePool에 배치
 nodeSelector:
-  workload: batch
+  karpenter.sh/capacity-type: on-demand
 
-tolerations: []
+tolerations:
+  - key: "capacity"
+    operator: "Equal"
+    value: "on-demand"
+    effect: "NoSchedule"
 affinity: {}
+
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+topologySpreadConstraints: []
+
+# PodDisruptionBudget (worker 모드)
+pdb:
+  enabled: false
+  minAvailable: 1
