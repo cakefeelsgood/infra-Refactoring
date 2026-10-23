@@ -76,14 +76,14 @@
 | 웹훅 Go 단위 테스트(`go test -race`), gofmt, go vet | 로컬에는 Go·Docker가 없어 실행하지 못함 | **CI에서 실행해 통과**(아래 3절 마지막 행) |
 | kubeconform | 미설치 | CRD 스키마 기반 구조 검사(Ruby)로 대체 |
 | `terraform plan` | 자격 증명·원격 상태 필요(금지) | validate까지만 |
-| Karpenter 1.15.0 ↔ EKS 1.35 호환 | AWS·공식 표 확인은 사용자 몫(D1) | 5절 확인 목록 |
+| ~~Karpenter 1.15.0 ↔ EKS 1.35 호환~~ | **확인 완료**: aws/karpenter-provider-aws `hack/docs/compatibilitymatrix_gen/compatibility.yaml`(main, 2026-10-23 조회): 1.15.x는 K8s 1.26–1.37 지원. 1.35 지원 | - |
 | ap-northeast-3 Spot 후보 풀 | AWS 조회 금지 | requirements 범위로만 표현 |
 | MNG 노드에서 user_data의 `maxPods`가 EKS 생성 설정보다 우선하는지 | 실제 노드 필요 | 런북 "적용 후: 노드 확인"으로 `allocatable.pods` 확인 |
 | 실험 수치의 운영 재현 | 실험 조건(리전, 버전, 인스턴스, 앱)과 다름 | 문서에 n=3·묶음 효과·/28 미재현을 명시 |
 
 ## 5. 배포 전 확인 목록 (사용자)
 
-1. Karpenter 1.15.0이 EKS 1.35를 지원하는지 공식 호환 표 확인
+1. ~~Karpenter 1.15.0이 EKS 1.35를 지원하는지~~ 확인 완료(aws/karpenter-provider-aws `hack/docs/compatibilitymatrix_gen/compatibility.yaml`(main, 2026-10-23 조회): 1.15.x는 K8s 1.26–1.37 지원)
 2. ap-northeast-3 a/c에서 `c/m/r` 5세대 이후 large/xlarge Spot 후보가 충분한지 확인
 3. EC2 Spot 서비스 연결 역할(`AWSServiceRoleForEC2Spot`)이 계정에 있는지 확인(기존 Spot MNG 때문에 있을 가능성이 높음)
 4. 실제 `terraform.tfvars`에 `enable_prod_karpenter = true`(prod 기본값 false, dev 기본값 true). **prod 서비스 values는 Karpenter 노드를 요구하므로, prod에서 Karpenter를 켜기 전에 서비스 values(PR-B)를 동기화하지 않는다**
